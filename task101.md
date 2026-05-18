@@ -1,0 +1,9 @@
+- plan & implement @SPEC.md 
+- test & verify
+- iterate
+- set up ./docs/ like https://github.com/twardoch/namzy/tree/main/docs (it’ll be deployed on http://code.twardoch.com/ipolypad/ )
+- write Markdown docs 
+- include a HTML demo page that utilizes the `ipolypad-js` package to show a demo of the functionality, with the ability for users to dragdrop their own images or SVGs, and then have some pre-prepared text wrap around the auto-calced polygon using pretext — see private/pretext.md 
+- rewrite & expand & update @README.md
+- run `uvx gitnextver` & publish the Python tool
+- publish the JavaScript package

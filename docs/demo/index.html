@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ipolypad demo — drop an image, watch text reflow</title>
+  <meta name="description" content="Drop an SVG or PNG to see a padded polygon hull traced in your browser, with sample text reflowing around it.">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #0f1014; color: #d4d6dc; font-family: "Inter", -apple-system, system-ui, sans-serif; min-height: 100vh; }
+    body { padding: 32px 24px 64px; }
+    h1 { font-size: 1.4rem; font-weight: 600; margin-bottom: 6px; color: #ffffff; }
+    h1 a { color: inherit; text-decoration: none; border-bottom: 1px dotted rgba(255,255,255,0.35); }
+    p.lede { color: #9aa0aa; margin-bottom: 28px; max-width: 720px; line-height: 1.55; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: #1a1c22;
+      border: 1px solid #2a2d36;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .panel h2 {
+      font-size: 0.85rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #707682;
+      margin-bottom: 14px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .panel h2 .meta { color: #4a4f5a; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 0.85em; }
+
+    .dropzone {
+      position: relative;
+      border: 2px dashed #3a3e4a;
+      border-radius: 8px;
+      aspect-ratio: 1;
+      max-width: 420px;
+      margin: 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 120ms, background 120ms;
+      overflow: hidden;
+    }
+    .dropzone.is-drag { border-color: #ff7849; background: rgba(255,120,73,0.05); }
+    .dropzone__hint { color: #707682; font-size: 0.92rem; text-align: center; padding: 16px; pointer-events: none; }
+    .dropzone__hint b { color: #d4d6dc; }
+    .dropzone__hint .small { display: block; margin-top: 6px; font-size: 0.82rem; }
+    .dropzone img, .dropzone svg.bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    .dropzone svg.overlay {
+      position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+    }
+
+    .controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; margin-top: 14px; }
+    .controls label { display: flex; flex-direction: column; gap: 4px; color: #9aa0aa; font-size: 0.82rem; }
+    .controls input, .controls select {
+      background: #0f1014; color: #d4d6dc; border: 1px solid #2a2d36; border-radius: 5px; padding: 6px 8px; font: inherit;
+    }
+    .controls input[type="checkbox"] { width: auto; align-self: flex-start; }
+
+    .flow-stage {
+      background: #ffffff;
+      color: #1c1e24;
+      border-radius: 8px;
+      padding: 24px;
+      min-height: 480px;
+      position: relative;
+      overflow: hidden;
+    }
+    .flow-stage canvas { display: block; width: 100%; }
+    .flow-stage .embed {
+      position: absolute;
+      pointer-events: none;
+      will-change: transform;
+    }
+    .flow-stage .embed img, .flow-stage .embed svg { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+    pre, code {
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    pre {
+      background: #0f1014;
+      border: 1px solid #2a2d36;
+      border-radius: 6px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      color: #c8d0d8;
+    }
+    .actions { display: flex; gap: 8px; margin-top: 8px; }
+    button {
+      background: #2a2d36; color: #d4d6dc; border: 1px solid #3a3e4a; border-radius: 5px;
+      padding: 6px 12px; font: inherit; cursor: pointer;
+    }
+    button:hover { background: #353946; }
+    button.primary { background: #ff7849; border-color: #ff7849; color: #1c0f0a; font-weight: 600; }
+    button.primary:hover { background: #ff8c63; }
+
+    .status { color: #707682; font-size: 0.85rem; margin-top: 8px; min-height: 1.2em; }
+    .status.error { color: #ff8567; }
+    .status.ok    { color: #6fcf97; }
+
+    .sample-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .sample-row button { font-size: 0.82rem; padding: 4px 10px; }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "esm-potrace-wasm": "https://esm.sh/esm-potrace-wasm@0.4.1",
+      "@chenglou/pretext": "https://esm.sh/@chenglou/pretext@0.1.3",
+      "pretext-flow": "https://esm.sh/pretext-flow@0.2.0"
+    }
+  }
+  </script>
+</head>
+<body>
+  <header style="max-width:1240px;margin:0 auto 28px;">
+    <h1><a href="../">ipolypad</a> &nbsp;·&nbsp; demo</h1>
+    <p class="lede">
+      Drop an SVG or PNG into the panel below. <code>ipolypad-js</code> rasterizes it
+      in your browser, pads the silhouette, traces a polygon hull, and feeds the
+      hull to <a href="https://github.com/NourTheArab/pretext-flow" style="color:#ff8c63">pretext-flow</a>
+      to reflow a passage of text around it.
+    </p>
+  </header>
+
+  <main class="layout">
+
+    <section class="panel">
+      <h2>Source <span class="meta" id="src-meta"></span></h2>
+
+      <div class="sample-row">
+        <button data-sample="dragon">Dragon SVG</button>
+        <button data-sample="star">Star SVG</button>
+        <button data-sample="cloud">Cloud SVG</button>
+      </div>
+
+      <div class="dropzone" id="dz">
+        <div class="dropzone__hint" id="dz-hint">
+          <b>Drop an SVG or PNG here</b>
+          <span class="small">or click to choose a file</span>
+        </div>
+        <input type="file" id="file" accept=".svg,.png,image/svg+xml,image/png" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;">
+        <svg class="overlay" id="overlay" viewBox="0 0 200 200" preserveAspectRatio="none"></svg>
+      </div>
+
+      <div class="controls">
+        <label>Size <input type="number" id="opt-size" value="200" min="64" max="1024" step="8"></label>
+        <label>Pad (px) <input type="number" id="opt-pad" value="8" min="0" max="80" step="1"></label>
+        <label>Max points <input type="number" id="opt-mp" value="32" min="4" max="128" step="1"></label>
+        <label style="flex-direction:row;align-items:center;gap:6px;"><input type="checkbox" id="opt-hull" checked>Convex hull</label>
+      </div>
+
+      <div class="status" id="status"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Text reflow <span class="meta">pretext-flow</span></h2>
+      <div class="flow-stage" id="stage">
+        <canvas id="text-canvas" aria-hidden="true"></canvas>
+        <div class="embed" id="embed-figure"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>JSON <button id="copy-json" style="font-size:0.8rem;padding:3px 8px;font-weight:normal;">copy</button></h2>
+      <pre id="json-out">—</pre>
+    </section>
+
+    <section class="panel">
+      <h2>CSS <button id="copy-css" style="font-size:0.8rem;padding:3px 8px;font-weight:normal;">copy</button></h2>
+      <pre id="css-out">—</pre>
+    </section>
+
+  </main>
+
+  <script type="module" src="./demo.js"></script>
+</body>
+</html>

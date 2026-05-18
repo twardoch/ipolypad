@@ -1,0 +1,51 @@
+title: ipolypad
+tagline: Image or SVG → padded polygon hull for text-wrap
+description: Convert any image or SVG into a small, normalized polygon hull suitable for CSS shape-outside and HTML/canvas text-wrap engines. Python + JavaScript, one spec.
+url: https://code.twardoch.com
+baseurl: /ipolypad
+
+remote_theme: just-the-docs/just-the-docs@v0.12.0
+repository: twardoch/ipolypad
+
+color_scheme: light
+search_enabled: true
+heading_anchors: true
+
+aux_links:
+  GitHub: https://github.com/twardoch/ipolypad
+  Demo: /ipolypad/demo/
+aux_links_new_tab: true
+
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/twardoch/ipolypad
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: tree
+
+footer_content: "Copyright &copy; Adam Twardoch. Distributed under the Apache-2.0 license."
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+  - jekyll-remote-theme
+
+lang: en
+timezone: Europe/Warsaw
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: page
+  - scope:
+      path: "usage"
+    values:
+      layout: page
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+  - vendor
+  - node_modules

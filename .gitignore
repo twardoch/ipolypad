@@ -92,3 +92,19 @@ var/
 venv.bak/
 venv/
 wheels/
+# Node
+node_modules/
+
+# Hatch-vcs generated
+ipolypad_py/src/ipolypad/__version__.py
+
+# Local databases
+*.db
+*.db-journal
+ruvector.db*
+
+# macOS
+.DS_Store
+
+# Editor caches
+.claude-mem/
