@@ -77,9 +77,13 @@
     .flow-stage canvas { display: block; width: 100%; }
     .flow-stage .embed {
       position: absolute;
-      pointer-events: none;
+      pointer-events: auto;
+      cursor: grab;
+      touch-action: none;
+      user-select: none;
       will-change: transform;
     }
+    .flow-stage .embed.is-dragging { cursor: grabbing; }
     .flow-stage .embed img, .flow-stage .embed svg { width: 100%; height: 100%; object-fit: contain; display: block; }
 
     pre, code {

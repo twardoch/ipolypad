@@ -27,6 +27,9 @@ let currentSource = null;        // string (svg markup) or Uint8Array
 let currentSourceKind = null;    // 'svg' | 'image'
 let currentSourceDataUrl = null; // for preview
 let polygonResult = null;
+let embedPosition = null;
+let embedWasDragged = false;
+let dragState = null;
 
 // ── Sample SVGs ─────────────────────────────────────────────────────────
 const SAMPLES = {
@@ -88,7 +91,7 @@ async function recomputePolygon() {
   setStatus('tracing…');
   try {
     const opts = {
-      size: 200,
+      size: parseInt(optSize.value, 10) || 200,
       pad: parseInt(optPad.value, 10) || 6,
       maxPoints: parseInt(optMp.value, 10) || 32,
       hull: optHull.checked,
@@ -128,13 +131,22 @@ function renderFlow() {
   // Embed size: large enough to prove the wrap, small enough to leave a readable column.
   const eW = Math.round(cssW * 0.36);
   const eH = Math.round(eW);
-  const eX = Math.max(16, cssW - eW - 24);
-  const eY = 70;
+  const defaultPosition = {
+    x: Math.max(16, cssW - eW - 24),
+    y: 70,
+  };
+  const position = embedWasDragged ? embedPosition : defaultPosition;
+  const eX = clamp(position.x, 0, Math.max(0, cssW - eW));
+  const eY = clamp(position.y, 8, Math.max(8, (textCanvas.clientHeight || 480) - eH - 8));
+  embedPosition = { x: eX, y: eY };
+  const stageStyle = getComputedStyle(stage);
+  const stagePadLeft = parseFloat(stageStyle.paddingLeft) || 0;
+  const stagePadTop = parseFloat(stageStyle.paddingTop) || 0;
 
   embedNode.style.width = eW + 'px';
   embedNode.style.height = eH + 'px';
-  embedNode.style.left = eX + 'px';
-  embedNode.style.top = eY + 'px';
+  embedNode.style.left = (eX + stagePadLeft) + 'px';
+  embedNode.style.top = (eY + stagePadTop) + 'px';
 
   // pretext-flow expects normalized object points plus the embed pixel extent.
   const localPolygon = pts.map(([x, y]) => ({
@@ -221,11 +233,59 @@ function drawPlainFallback(cssW) {
   if (line && y < 480 - 26) ctx.fillText(line, 16, y);
 }
 
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function pointFromPointerEvent(event) {
+  const rect = textCanvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+embedNode.addEventListener('pointerdown', (event) => {
+  if (!embedPosition) return;
+  event.preventDefault();
+  embedNode.setPointerCapture(event.pointerId);
+  const pt = pointFromPointerEvent(event);
+  dragState = {
+    pointerId: event.pointerId,
+    dx: pt.x - embedPosition.x,
+    dy: pt.y - embedPosition.y,
+  };
+  embedWasDragged = true;
+  embedNode.classList.add('is-dragging');
+});
+
+embedNode.addEventListener('pointermove', (event) => {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  event.preventDefault();
+  const pt = pointFromPointerEvent(event);
+  embedPosition = {
+    x: pt.x - dragState.dx,
+    y: pt.y - dragState.dy,
+  };
+  renderFlow();
+});
+
+function endEmbedDrag(event) {
+  if (!dragState || event.pointerId !== dragState.pointerId) return;
+  dragState = null;
+  embedNode.classList.remove('is-dragging');
+}
+
+embedNode.addEventListener('pointerup', endEmbedDrag);
+embedNode.addEventListener('pointercancel', endEmbedDrag);
+
 // ── Input handlers ──────────────────────────────────────────────────────
 async function loadSvgMarkup(markup, label = '<inline svg>') {
   currentSource = markup;
   currentSourceKind = 'svg';
   currentSourceDataUrl = makeSvgDataUrl(markup);
+  embedPosition = null;
+  embedWasDragged = false;
   showSourcePreview(currentSourceDataUrl);
   setEmbedVisual(currentSourceDataUrl);
   await recomputePolygon();
@@ -242,6 +302,8 @@ async function loadFile(file) {
   currentSourceKind = 'image';
   const blob = new Blob([buf], { type: file.type || 'image/png' });
   currentSourceDataUrl = URL.createObjectURL(blob);
+  embedPosition = null;
+  embedWasDragged = false;
   showSourcePreview(currentSourceDataUrl);
   setEmbedVisual(currentSourceDataUrl);
   await recomputePolygon();
@@ -269,6 +331,7 @@ document.querySelectorAll('.sample-row button[data-sample]').forEach((btn) => {
 });
 
 [optSize, optPad, optMp, optHull].forEach((el) => el.addEventListener('change', recomputePolygon));
+window.addEventListener('resize', () => renderFlow());
 
 document.getElementById('copy-json').addEventListener('click', async () => {
   await navigator.clipboard.writeText(jsonOut.textContent ?? '');

@@ -41,6 +41,11 @@ fi
 log "publishing tag $TAG"
 VERSION="${TAG#v}"
 
+# ── Credential preflight ──────────────────────────────────────────────────
+log "check npm authentication"
+npm whoami >/dev/null || die "npm is not authenticated; run \`npm login\` before publishing"
+ok "npm authenticated"
+
 # ── Build first ───────────────────────────────────────────────────────────
 "$ROOT/build.sh"
 require_clean_tree
@@ -49,7 +54,10 @@ require_clean_tree
 log "publish python (PyPI)"
 cd "$ROOT/ipolypad_py"
 # `uv publish` reads UV_PUBLISH_TOKEN or PyPI creds in ~/.pypirc
-uv publish "dist/ipolypad-${VERSION}.tar.gz" "dist/ipolypad-${VERSION}-py3-none-any.whl"
+uv publish \
+  --check-url "https://pypi.org/simple/ipolypad/" \
+  "dist/ipolypad-${VERSION}.tar.gz" \
+  "dist/ipolypad-${VERSION}-py3-none-any.whl"
 ok "python published"
 
 # ── JavaScript ────────────────────────────────────────────────────────────
@@ -74,10 +82,13 @@ for (const file of ['package.json', 'package-lock.json']) {
   const data = JSON.parse(fs.readFileSync(path, 'utf8'));
   data.version = version;
   if (data.packages?.['']) data.packages[''].version = version;
+  if (file === 'package.json' && data.scripts) {
+    delete data.scripts.prepublishOnly;
+  }
   fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
 }
 NODE
-npm publish --access public
+npm publish --access public --ignore-scripts
 ok "javascript published as ipolypad-js@$VERSION"
 
 ok "all done — verify on https://pypi.org/project/ipolypad/ and https://www.npmjs.com/package/ipolypad-js"
