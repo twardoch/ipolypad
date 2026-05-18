@@ -166,7 +166,7 @@ function renderFlow() {
         {
           id: 'figure',
           shape: { type: 'polygon', width: eW, height: eH, points: localPolygon },
-          margin: 14,
+          margin: 0,
           position: { type: 'absolute', x: eX, y: eY },
         },
       ],
