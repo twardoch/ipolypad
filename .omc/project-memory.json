@@ -1,0 +1,47 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1779134842862,
+  "projectRoot": "/Users/adam/Developer/vcs3/github.twardoch/pub/ipolypad",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "private": {
+      "path": "private",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1779134842857,
+      "keyFiles": [
+        "svg2polygon.py"
+      ]
+    }
+  },
+  "hotPaths": [],
+  "userDirectives": []
+}
