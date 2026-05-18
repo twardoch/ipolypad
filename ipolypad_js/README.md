@@ -42,7 +42,7 @@ const css = await ipolypad(svgElement, { format: 'css', selector: '.figure' });
 | ----------------- | ------- | ---------------------------------------- |
 | `size`            | 200     | Raster canvas size (px, square).         |
 | `margin`          | 20      | Transparent gutter for dilation room.    |
-| `pad`             | 6       | Dilation radius in pixels.               |
+| `pad`             | 6       | Positive dilates; negative erodes.       |
 | `maxPoints`       | 32      | Final vertex cap.                        |
 | `samplesPerCurve` | 4       | Bezier flatten samples.                  |
 | `hull`            | true    | Apply convex envelope.                   |

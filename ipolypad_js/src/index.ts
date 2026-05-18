@@ -7,7 +7,7 @@ import {
   rasterizeImageBytes,
   rasterizeSvg,
 } from './canvas.js';
-import { alphaFromRGBA, dilateCircular, maskFixed, padMask, resolveSource } from './rasterize.js';
+import { alphaFromRGBA, dilateCircular, erodeCircular, maskFixed, padMask, resolveSource } from './rasterize.js';
 import {
   convexHull,
   decimate,
@@ -89,8 +89,16 @@ export async function ipolypad(input: Source, options: Options = {}): Promise<Js
   }
   if (!any) throw new EmptyMaskError('no foreground above alpha threshold (24)');
 
-  const work = padMask(mask, pixels.width, pixels.height, pad);
-  mask = dilateCircular(work.mask, work.width, work.height, pad);
+  const offset = pad > 0 ? pad : 0;
+  const work = padMask(mask, pixels.width, pixels.height, offset);
+  mask = pad < 0
+    ? erodeCircular(work.mask, work.width, work.height, Math.abs(pad))
+    : dilateCircular(work.mask, work.width, work.height, pad);
+  any = false;
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i]) { any = true; break; }
+  }
+  if (!any) throw new EmptyMaskError('padding eroded the foreground to empty');
   const polygons = await traceMask(mask, work.width, work.height, samplesPerCurve);
   if (polygons.length === 0) throw new TraceEmptyError('potrace produced no curves');
 
@@ -100,7 +108,7 @@ export async function ipolypad(input: Source, options: Options = {}): Promise<Js
 
   let pts = hull ? convexHull(best) : best;
   pts = decimate(pts, maxPoints);
-  pts = normalize(pts, pixels.width, pixels.height, pad, pad);
+  pts = normalize(pts, pixels.width, pixels.height, offset, offset);
 
   const payload = buildPayload({
     src: resolved.src,

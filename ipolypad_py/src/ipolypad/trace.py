@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from potrace import Bitmap
-from scipy.ndimage import binary_dilation
+from scipy.ndimage import binary_dilation, binary_erosion
 
 
 def dilate_circular(mask: np.ndarray, *, radius: int) -> np.ndarray:
@@ -15,6 +15,16 @@ def dilate_circular(mask: np.ndarray, *, radius: int) -> np.ndarray:
     y, x = np.ogrid[-r : r + 1, -r : r + 1]
     struct = (x * x + y * y) <= r * r
     return binary_dilation(mask, structure=struct)
+
+
+def erode_circular(mask: np.ndarray, *, radius: int) -> np.ndarray:
+    """Binary erosion with a circular (Euclidean) structuring element."""
+    if radius <= 0:
+        return mask
+    r = radius
+    y, x = np.ogrid[-r : r + 1, -r : r + 1]
+    struct = (x * x + y * y) <= r * r
+    return binary_erosion(mask, structure=struct)
 
 
 def flatten_curve(curve, *, samples_per_curve: int) -> list[tuple[float, float]]:

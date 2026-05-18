@@ -2,6 +2,7 @@
 
 Convert an image or SVG into a **padded polygon hull** suitable for CSS
 `shape-outside` and HTML/canvas text-wrap engines. Reference implementation.
+Positive padding dilates the silhouette; negative padding erodes it.
 
 See the project root [`README.md`](../README.md) and [`SPEC.md`](../SPEC.md) for
 the full design. This package is the Python side — smart, batteries-included,

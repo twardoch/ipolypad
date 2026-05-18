@@ -50,7 +50,7 @@ const css = await ipolypad(svgElement, {
 | ----------------- | ------- | -------------------------------------- |
 | `size`            | 200     | Raster canvas size (px, square).       |
 | `margin`          | 20      | Transparent gutter for dilation.       |
-| `pad`             | 6       | Dilation radius in pixels.             |
+| `pad`             | 6       | Positive dilates; negative erodes.     |
 | `maxPoints`       | 32      | Final vertex cap.                      |
 | `samplesPerCurve` | 4       | Bezier flatten samples.                |
 | `hull`            | true    | Apply convex envelope.                 |
@@ -60,6 +60,7 @@ const css = await ipolypad(svgElement, {
 Padding is applied on an expanded working canvas, then normalized back to the
 original image box. Large pads can produce points outside `[0, 1]`, which turn
 into negative CSS percentages or values above `100%`.
+Negative padding erodes the silhouette for tighter wraps.
 
 ## What's deliberately out
 

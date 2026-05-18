@@ -60,6 +60,15 @@ def test_large_pad_can_extend_beyond_original_image(sample_svg: Path) -> None:
     assert result["raster"]["height"] == 200
 
 
+def test_negative_pad_shrinks_polygon(sample_svg: Path) -> None:
+    zero = trace(str(sample_svg), size=200, pad=0, max_points=24)
+    negative = trace(str(sample_svg), size=200, pad=-8, max_points=24)
+    zero_width = max(x for x, _ in zero["points"]) - min(x for x, _ in zero["points"])
+    negative_width = max(x for x, _ in negative["points"]) - min(x for x, _ in negative["points"])
+    assert negative_width < zero_width, "negative padding should erode the foreground"
+    assert negative["raster"]["pad"] == -8
+
+
 def test_invalid_format_raises(sample_svg: Path) -> None:
     with pytest.raises(ValueError):
         trace(str(sample_svg), format="bogus")  # type: ignore[arg-type]

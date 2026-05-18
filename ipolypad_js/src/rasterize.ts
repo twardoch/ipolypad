@@ -146,6 +146,36 @@ export function dilateCircular(mask: Uint8Array, w: number, h: number, radius: n
   return out;
 }
 
+/** Circular binary erosion. Mask is row-major H×W of 0/1. */
+export function erodeCircular(mask: Uint8Array, w: number, h: number, radius: number): Uint8Array {
+  if (radius <= 0) return mask;
+  const r = radius;
+  const offsets: Array<[number, number]> = [];
+  const r2 = r * r;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy <= r2) offsets.push([dx, dy]);
+    }
+  }
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (mask[y * w + x] !== 1) continue;
+      let keep = true;
+      for (const [dx, dy] of offsets) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h || mask[ny * w + nx] !== 1) {
+          keep = false;
+          break;
+        }
+      }
+      if (keep) out[y * w + x] = 1;
+    }
+  }
+  return out;
+}
+
 export function padMask(
   mask: Uint8Array,
   w: number,

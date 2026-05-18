@@ -34,7 +34,7 @@ ipolypad batch '<glob>' --out-dir <dir> [options]
 | ------------------- | ------- | ---------------------------------------------- |
 | `--size`            | 200     | Raster canvas size (px, square).               |
 | `--margin`          | 20      | Transparent gutter for dilation room.          |
-| `--pad`             | 6       | Dilation radius in **pixels**.                 |
+| `--pad`             | 6       | Positive dilates; negative erodes, in pixels.  |
 | `--pad_pct` / `--pad-pct` | — | Alternative: pad as a % of `size`.             |
 | `--max-points`      | 32      | Final vertex cap.                              |
 | `--samples-per-curve` | 4     | Bezier flattening.                             |
@@ -51,6 +51,7 @@ ipolypad batch '<glob>' --out-dir <dir> [options]
 Padding is applied on an expanded working canvas, then normalized back to the
 original image box. With large padding, CSS coordinates may be negative or
 greater than `100%`; that is expected and preserves the actual padded hull.
+Negative padding erodes the silhouette for tighter wraps.
 
 ### Examples
 

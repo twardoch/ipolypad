@@ -12,7 +12,7 @@ Turn an image or SVG into a small, normalized **padded polygon hull** for CSS
 [JS on npm](https://www.npmjs.com/package/ipolypad-js)
 
 ```text
-image / SVG  →  rasterize  →  silhouette mask  →  pad (dilate)  →
+image / SVG  →  rasterize  →  silhouette mask  →  pad (dilate/erode)  →
                 potrace  →  pick outer shell  →  convex hull  →
                 simplify (RDP)  →  normalize  →  JSON / CSS
 ```
@@ -119,7 +119,7 @@ Eight stages. Both implementations agree on every numeric:
    for pathological cases.
 4. **Pad** — expand the working canvas by the pad amount, then perform circular
    binary dilation (Euclidean structuring element, not Manhattan — round shapes
-   deserve round padding).
+   deserve round padding). Negative pad values erode the source mask instead.
 5. **Trace** — potrace with `turdsize=2, turnpolicy=0, alphamax=1.0`,
    then flatten beziers at 4 samples per curve.
 6. **Outer shell** — pick the largest curve whose area is < 95% of the

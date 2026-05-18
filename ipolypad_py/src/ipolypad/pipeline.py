@@ -13,7 +13,7 @@ from .errors import EmptyMaskError, OnlyFrameError, TraceEmptyError
 from .fetch import fetch, is_svg
 from .rasterize import alpha_array, rasterize
 from .simplify import convex_hull, decimate, normalize, pick_outer_shell, polygon_area
-from .trace import dilate_circular, trace_mask
+from .trace import dilate_circular, erode_circular, trace_mask
 
 Format = Literal["json", "css", "svg", "png", "html"]
 
@@ -22,7 +22,7 @@ def _resolve_pad(*, pad: int | None, pad_pct: float | None, size: int) -> int:
     if pad is not None and pad_pct is not None:
         raise ValueError("pass either pad or pad_pct, not both")
     if pad_pct is not None:
-        return max(0, round(pad_pct / 100.0 * size))
+        return round(pad_pct / 100.0 * size)
     if pad is None:
         return 6
     return int(pad)
@@ -74,12 +74,19 @@ def trace(
         )
 
     h, w = mask.shape
+    offset = pad_px if pad_px > 0 else 0
     work_mask = (
-        np.pad(mask, ((pad_px, pad_px), (pad_px, pad_px)), constant_values=False)
+        np.pad(mask, ((offset, offset), (offset, offset)), constant_values=False)
         if pad_px > 0
         else mask
     )
-    work_mask = dilate_circular(work_mask, radius=pad_px)
+    work_mask = (
+        erode_circular(work_mask, radius=abs(pad_px))
+        if pad_px < 0
+        else dilate_circular(work_mask, radius=pad_px)
+    )
+    if not work_mask.any():
+        raise EmptyMaskError("padding eroded the foreground to empty")
     work_h, work_w = work_mask.shape
     polygons = trace_mask(work_mask, samples_per_curve=samples_per_curve)
     if not polygons:
@@ -92,7 +99,7 @@ def trace(
 
     pts = convex_hull(best) if hull else best
     pts = decimate(pts, max_points)
-    pts = normalize(pts, w, h, offset_x=pad_px, offset_y=pad_px)
+    pts = normalize(pts, w, h, offset_x=offset, offset_y=offset)
 
     if format == "json":
         payload_str = emit(

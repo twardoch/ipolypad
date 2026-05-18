@@ -78,13 +78,19 @@ outside the viewBox.
 Extract the alpha channel. Any pixel with `alpha > 24` becomes foreground.
 This single fixed threshold is intentional — see §4.1 for the Python override.
 
-### 2.4 Pad (binary dilation)
+### 2.4 Pad (binary morphology)
 
-First place the binary mask on a transparent working canvas expanded by `pad`
-pixels on every side. Then dilate by `pad` pixels using a **circular**
-structuring element of radius `pad`. The fixed Manhattan/cross structuring
-element used by many naive implementations is wrong here — it produces square
-corners on round silhouettes. Use Euclidean distance: `(x² + y²) ≤ r²`.
+For positive `pad`, first place the binary mask on a transparent working canvas
+expanded by `pad` pixels on every side. Then dilate by `pad` pixels using a
+**circular** structuring element of radius `pad`.
+
+For negative `pad`, do not expand the working canvas; erode the source mask by
+`abs(pad)` pixels using the same circular structuring element. `pad=0` leaves
+the mask unchanged.
+
+The fixed Manhattan/cross structuring element used by many naive
+implementations is wrong here — it produces square corners on round
+silhouettes. Use Euclidean distance: `(x² + y²) ≤ r²`.
 
 Padding is expressed externally as a percentage of `size`; convert to pixels at
 the boundary: `pad_px = round(pad_pct / 100 · size)`.
@@ -322,8 +328,8 @@ parity. JS options are camelCase. The boundary mapping is fixed:
 | ------------------- | ------- | --------- | -------------------------------------- |
 | `size`              | 200     | 64–1024   | Raster canvas size (px, square).       |
 | `margin`            | 20      | 0–size/4  | Transparent gutter for dilation room.  |
-| `pad`               | 6 (px)  | 0–size/4  | Dilation radius.                       |
-| `pad_pct` (CLI)     | 3%      | 0–25%     | Alternative entry; `pad_px = pad_pct/100·size`. |
+| `pad`               | 6 (px)  | ±size/4   | Positive dilates; negative erodes.     |
+| `pad_pct` (CLI)     | 3%      | ±25%      | Alternative entry; `pad_px = pad_pct/100·size`. |
 | `max_points`        | 32      | 4–256     | Final vertex cap.                      |
 | `samples_per_curve` | 4       | 1–16      | Bezier flattening.                     |
 | `hull`              | true    | bool      | Convex envelope.                       |

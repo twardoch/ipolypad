@@ -169,6 +169,34 @@ function dilateCircular(mask, w, h, radius) {
   }
   return out;
 }
+function erodeCircular(mask, w, h, radius) {
+  if (radius <= 0) return mask;
+  const r = radius;
+  const offsets = [];
+  const r2 = r * r;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      if (dx * dx + dy * dy <= r2) offsets.push([dx, dy]);
+    }
+  }
+  const out = new Uint8Array(mask.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (mask[y * w + x] !== 1) continue;
+      let keep = true;
+      for (const [dx, dy] of offsets) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h || mask[ny * w + nx] !== 1) {
+          keep = false;
+          break;
+        }
+      }
+      if (keep) out[y * w + x] = 1;
+    }
+  }
+  return out;
+}
 function padMask(mask, w, h, pad) {
   if (pad <= 0) return { mask, width: w, height: h };
   const width = w + 2 * pad;
@@ -618,8 +646,17 @@ async function ipolypad(input, options = {}) {
     }
   }
   if (!any) throw new EmptyMaskError("no foreground above alpha threshold (24)");
-  const work = padMask(mask, pixels.width, pixels.height, pad);
-  mask = dilateCircular(work.mask, work.width, work.height, pad);
+  const offset = pad > 0 ? pad : 0;
+  const work = padMask(mask, pixels.width, pixels.height, offset);
+  mask = pad < 0 ? erodeCircular(work.mask, work.width, work.height, Math.abs(pad)) : dilateCircular(work.mask, work.width, work.height, pad);
+  any = false;
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i]) {
+      any = true;
+      break;
+    }
+  }
+  if (!any) throw new EmptyMaskError("padding eroded the foreground to empty");
   const polygons = await traceMask(mask, work.width, work.height, samplesPerCurve);
   if (polygons.length === 0) throw new TraceEmptyError("potrace produced no curves");
   const canvasArea = work.width * work.height;
@@ -627,7 +664,7 @@ async function ipolypad(input, options = {}) {
   if (!best) throw new OnlyFrameError("only the bitmap-frame curve was traced");
   let pts = hull ? convexHull(best) : best;
   pts = decimate(pts, maxPoints);
-  pts = normalize(pts, pixels.width, pixels.height, pad, pad);
+  pts = normalize(pts, pixels.width, pixels.height, offset, offset);
   const payload = buildPayload({
     src: resolved.src,
     width: pixels.width,

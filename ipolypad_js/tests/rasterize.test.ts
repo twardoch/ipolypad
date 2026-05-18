@@ -1,6 +1,6 @@
 // this_file: ipolypad_js/tests/rasterize.test.ts
 import { describe, expect, it } from 'vitest';
-import { alphaFromRGBA, dilateCircular, maskFixed, padMask } from '../src/rasterize.js';
+import { alphaFromRGBA, dilateCircular, erodeCircular, maskFixed, padMask } from '../src/rasterize.js';
 
 describe('alphaFromRGBA', () => {
   it('extracts the alpha channel', () => {
@@ -36,6 +36,20 @@ describe('dilateCircular', () => {
   });
 });
 
+describe('erodeCircular', () => {
+  it('radius 1 shrinks a filled block by one plus-neighbour radius', () => {
+    const m = new Uint8Array(25).fill(1);
+    const out = erodeCircular(m, 5, 5, 1);
+    expect(Array.from(out)).toEqual([
+      0, 0, 0, 0, 0,
+      0, 1, 1, 1, 0,
+      0, 1, 1, 1, 0,
+      0, 1, 1, 1, 0,
+      0, 0, 0, 0, 0,
+    ]);
+  });
+});
+
 describe('padMask', () => {
   it('adds transparent room around the source mask', () => {
     const m = new Uint8Array([1, 0, 0, 1]);
@@ -48,5 +62,12 @@ describe('padMask', () => {
       0, 0, 1, 0,
       0, 0, 0, 0,
     ]);
+  });
+  it('does not offset the source mask for negative padding', () => {
+    const m = new Uint8Array([1, 0, 0, 1]);
+    const out = padMask(m, 2, 2, -1);
+    expect(out.width).toBe(2);
+    expect(out.height).toBe(2);
+    expect(Array.from(out.mask)).toEqual([1, 0, 0, 1]);
   });
 });

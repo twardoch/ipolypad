@@ -19,7 +19,7 @@ has_toc: false
 ## What it does
 
 ```text
-image / SVG  →  rasterize  →  silhouette mask  →  pad (dilate)  →
+image / SVG  →  rasterize  →  silhouette mask  →  pad (dilate/erode)  →
                 potrace  →  pick outer shell  →  convex hull  →
                 simplify (RDP)  →  normalize  →  JSON / CSS
 ```
@@ -31,6 +31,7 @@ a sensible visual gap. ~32 vertices is the sweet spot.
 Padding is real geometry, not a clipped inset trick. If the padded silhouette
 extends outside the source image rectangle, the emitted polygon can contain
 negative percentages or values above `100%`.
+Negative padding erodes the silhouette for tighter wraps.
 
 ## Pick your language
 

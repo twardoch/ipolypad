@@ -91,9 +91,9 @@ async function recomputePolygon() {
   setStatus('tracing…');
   try {
     const opts = {
-      size: parseInt(optSize.value, 10) || 200,
-      pad: parseInt(optPad.value, 10) || 6,
-      maxPoints: parseInt(optMp.value, 10) || 32,
+      size: numberOption(optSize.value, 200),
+      pad: numberOption(optPad.value, 6),
+      maxPoints: numberOption(optMp.value, 32),
       hull: optHull.checked,
     };
     const result = await ipolypad(currentSource, opts);
@@ -235,6 +235,11 @@ function drawPlainFallback(cssW) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function numberOption(value, fallback) {
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
 }
 
 function pointFromPointerEvent(event) {
