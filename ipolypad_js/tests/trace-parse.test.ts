@@ -36,4 +36,15 @@ describe('parsePotraceSvg', () => {
   it('ignores empty d', () => {
     expect(parsePotraceSvg('<svg></svg>', 4)).toEqual([]);
   });
+
+  it('applies the group transform emitted by esm-potrace-wasm', () => {
+    const svg = [
+      '<svg width="20" height="20" viewBox="0 0 20 20">',
+      '<g transform="translate(0.000000,20.000000) scale(0.100000,-0.100000)">',
+      '<path d="M50 100 l0 -50 50 0 50 0 0 50 0 50 -50 0 -50 0 0 -50z"/>',
+      '</g></svg>',
+    ].join('');
+    const polys = parsePotraceSvg(svg, 4);
+    expect(polys[0]).toEqual([[5, 10], [5, 15], [10, 15], [15, 15], [15, 10], [15, 5], [10, 5], [5, 5], [5, 10]]);
+  });
 });

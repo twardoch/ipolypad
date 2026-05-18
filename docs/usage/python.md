@@ -35,7 +35,7 @@ ipolypad batch '<glob>' --out-dir <dir> [options]
 | `--size`            | 200     | Raster canvas size (px, square).               |
 | `--margin`          | 20      | Transparent gutter for dilation room.          |
 | `--pad`             | 6       | Dilation radius in **pixels**.                 |
-| `--pad-pct`         | —       | Alternative: pad as a % of `size`.             |
+| `--pad_pct` / `--pad-pct` | — | Alternative: pad as a % of `size`.             |
 | `--max-points`      | 32      | Final vertex cap.                              |
 | `--samples-per-curve` | 4     | Bezier flattening.                             |
 | `--hull / --no-hull` | true   | Convex envelope.                               |
@@ -48,6 +48,10 @@ ipolypad batch '<glob>' --out-dir <dir> [options]
 
 `src` may be a local file path, an `http(s)://` URL, or a `data:` URL.
 
+Padding is applied on an expanded working canvas, then normalized back to the
+original image box. With large padding, CSS coordinates may be negative or
+greater than `100%`; that is expected and preserves the actual padded hull.
+
 ### Examples
 
 ```bash
@@ -58,7 +62,10 @@ ipolypad trace dragon.svg
 ipolypad trace dragon.svg --format css --selector ".figure" --out dragon.css
 
 # Photograph with colour-distance background detection
-ipolypad trace photo.jpg --enhance --bg-tolerance 14 --pad-pct 4
+ipolypad trace photo.jpg --enhance --bg-tolerance 14 --pad_pct 4
+
+# Larger-than-image hull preview
+ipolypad trace Dragon.svg --pad_pct 20 --format html > Dragon.html
 
 # Multi-format in one go (writes dragon.json, dragon.css, dragon.svg)
 ipolypad trace dragon.svg --format json,css,svg --out dragon

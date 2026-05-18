@@ -169,6 +169,16 @@ function dilateCircular(mask, w, h, radius) {
   }
   return out;
 }
+function padMask(mask, w, h, pad) {
+  if (pad <= 0) return { mask, width: w, height: h };
+  const width = w + 2 * pad;
+  const height = h + 2 * pad;
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < h; y++) {
+    out.set(mask.subarray(y * w, y * w + w), (y + pad) * width + pad);
+  }
+  return { mask: out, width, height };
+}
 
 // src/canvas.ts
 function isBrowser() {
@@ -394,8 +404,8 @@ function decimate(pts, maxPoints) {
   }
   return rdp(work, hi);
 }
-function normalize(pts, width, height) {
-  return pts.map(([x, y]) => [x / width, y / height]);
+function normalize(pts, width, height, offsetX = 0, offsetY = 0) {
+  return pts.map(([x, y]) => [(x - offsetX) / width, (y - offsetY) / height]);
 }
 
 // src/trace.ts
@@ -405,7 +415,7 @@ function setPotrace(fn) {
 }
 async function getPotrace() {
   if (_potraceFn) return _potraceFn;
-  const mod = await import('esm-potrace-wasm');
+  const mod = await import("esm-potrace-wasm");
   const fn = mod.potrace ?? mod.default;
   if (!fn) throw new Error("esm-potrace-wasm did not export a callable potrace function");
   _potraceFn = fn;
@@ -503,6 +513,7 @@ function cubic(p0, p1, p2, p3, samplesPerCurve) {
 }
 function parsePotraceSvg(svg, samplesPerCurve) {
   const polygons = [];
+  const transform = parseGroupTransform(svg);
   const pathRe = /<path[^>]*\sd="([^"]+)"/g;
   let pathMatch;
   while ((pathMatch = pathRe.exec(svg)) !== null) {
@@ -512,7 +523,7 @@ function parsePotraceSvg(svg, samplesPerCurve) {
     let start = null;
     let buf = [];
     const flush = () => {
-      if (buf.length >= 3) polygons.push(buf);
+      if (buf.length >= 3) polygons.push(buf.map(transform));
       buf = [];
     };
     for (const cmd of cmds) {
@@ -534,7 +545,8 @@ function parsePotraceSvg(svg, samplesPerCurve) {
         buf.push(...cubic(cur, p1, p2, p3, samplesPerCurve));
         cur = p3;
       } else if (cmd.kind === "Z") {
-        if (start && cur && (cur[0] !== start[0] || cur[1] !== start[1])) ;
+        if (start && cur && (cur[0] !== start[0] || cur[1] !== start[1])) {
+        }
         flush();
         cur = start;
       }
@@ -542,6 +554,17 @@ function parsePotraceSvg(svg, samplesPerCurve) {
     if (buf.length > 0) flush();
   }
   return polygons;
+}
+function parseGroupTransform(svg) {
+  const match = svg.match(
+    /<g[^>]*\btransform="translate\(\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*\)\s*scale\(\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*\)"/
+  );
+  if (!match) return (point) => point;
+  const tx = parseFloat(match[1]);
+  const ty = parseFloat(match[2]);
+  const sx = parseFloat(match[3]);
+  const sy = parseFloat(match[4]);
+  return ([x, y]) => [tx + x * sx, ty + y * sy];
 }
 async function traceMask(mask, w, h, samplesPerCurve) {
   const potrace = await getPotrace();
@@ -595,15 +618,16 @@ async function ipolypad(input, options = {}) {
     }
   }
   if (!any) throw new EmptyMaskError("no foreground above alpha threshold (24)");
-  mask = dilateCircular(mask, pixels.width, pixels.height, pad);
-  const polygons = await traceMask(mask, pixels.width, pixels.height, samplesPerCurve);
+  const work = padMask(mask, pixels.width, pixels.height, pad);
+  mask = dilateCircular(work.mask, work.width, work.height, pad);
+  const polygons = await traceMask(mask, work.width, work.height, samplesPerCurve);
   if (polygons.length === 0) throw new TraceEmptyError("potrace produced no curves");
-  const canvasArea = pixels.width * pixels.height;
+  const canvasArea = work.width * work.height;
   let best = pickOuterShell(polygons, canvasArea);
   if (!best) throw new OnlyFrameError("only the bitmap-frame curve was traced");
   let pts = hull ? convexHull(best) : best;
   pts = decimate(pts, maxPoints);
-  pts = normalize(pts, pixels.width, pixels.height);
+  pts = normalize(pts, pixels.width, pixels.height, pad, pad);
   const payload = buildPayload({
     src: resolved.src,
     width: pixels.width,
@@ -624,7 +648,24 @@ async function ipolypadJsonString(input, options = {}) {
   const result = await ipolypad(input, { ...options, format: "json" });
   return toJsonString(result);
 }
-
-export { EmptyMaskError, FormatError, IpolypadError, OnlyFrameError, SourceError, TraceEmptyError, buildPayload, convexHull, decimate, ipolypad, ipolypadJsonString, normalize, pickOuterShell, polygonArea, rdp, setNodeCanvasFactory, setPotrace, toCss, toJsonString };
-//# sourceMappingURL=index.js.map
-//# sourceMappingURL=index.js.map
+export {
+  EmptyMaskError,
+  FormatError,
+  IpolypadError,
+  OnlyFrameError,
+  SourceError,
+  TraceEmptyError,
+  buildPayload,
+  convexHull,
+  decimate,
+  ipolypad,
+  ipolypadJsonString,
+  normalize,
+  pickOuterShell,
+  polygonArea,
+  rdp,
+  setNodeCanvasFactory,
+  setPotrace,
+  toCss,
+  toJsonString
+};

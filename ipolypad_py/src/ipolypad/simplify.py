@@ -99,6 +99,13 @@ def decimate(pts: list[Point], max_points: int) -> list[Point]:
     return rdp(pts, hi)
 
 
-def normalize(pts: list[Point], width: int, height: int) -> list[Point]:
-    """Normalize to [0,1] over the rasterization box. SPEC §2.9."""
-    return [(x / width, y / height) for (x, y) in pts]
+def normalize(
+    pts: list[Point],
+    width: int,
+    height: int,
+    *,
+    offset_x: float = 0.0,
+    offset_y: float = 0.0,
+) -> list[Point]:
+    """Normalize over the original image box, optionally undoing work-canvas offset."""
+    return [((x - offset_x) / width, (y - offset_y) / height) for (x, y) in pts]

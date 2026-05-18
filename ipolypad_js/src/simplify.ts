@@ -129,6 +129,12 @@ export function decimate(pts: Point[], maxPoints: number): Point[] {
   return rdp(work, hi);
 }
 
-export function normalize(pts: Point[], width: number, height: number): Point[] {
-  return pts.map(([x, y]) => [x / width, y / height] as Point);
+export function normalize(
+  pts: Point[],
+  width: number,
+  height: number,
+  offsetX = 0,
+  offsetY = 0,
+): Point[] {
+  return pts.map(([x, y]) => [(x - offsetX) / width, (y - offsetY) / height] as Point);
 }

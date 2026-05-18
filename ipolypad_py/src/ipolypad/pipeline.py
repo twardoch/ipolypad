@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal
 
+import numpy as np
+
 from .color import autoenhance, mask_fixed, mask_smart
 from .emit import emit
 from .errors import EmptyMaskError, OnlyFrameError, TraceEmptyError
@@ -71,20 +73,26 @@ def trace(
             "no foreground above threshold; lower --bg-tolerance or check source"
         )
 
-    mask = dilate_circular(mask, radius=pad_px)
     h, w = mask.shape
-    polygons = trace_mask(mask, samples_per_curve=samples_per_curve)
+    work_mask = (
+        np.pad(mask, ((pad_px, pad_px), (pad_px, pad_px)), constant_values=False)
+        if pad_px > 0
+        else mask
+    )
+    work_mask = dilate_circular(work_mask, radius=pad_px)
+    work_h, work_w = work_mask.shape
+    polygons = trace_mask(work_mask, samples_per_curve=samples_per_curve)
     if not polygons:
         raise TraceEmptyError("potrace produced no curves")
 
-    canvas_area = float(h * w)
+    canvas_area = float(work_h * work_w)
     best = pick_outer_shell(polygons, canvas_area=canvas_area)
     if best is None:
         raise OnlyFrameError("only the bitmap-frame curve was traced")
 
     pts = convex_hull(best) if hull else best
     pts = decimate(pts, max_points)
-    pts = normalize(pts, w, h)
+    pts = normalize(pts, w, h, offset_x=pad_px, offset_y=pad_px)
 
     if format == "json":
         payload_str = emit(

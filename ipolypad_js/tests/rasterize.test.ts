@@ -1,6 +1,6 @@
 // this_file: ipolypad_js/tests/rasterize.test.ts
 import { describe, expect, it } from 'vitest';
-import { alphaFromRGBA, dilateCircular, maskFixed } from '../src/rasterize.js';
+import { alphaFromRGBA, dilateCircular, maskFixed, padMask } from '../src/rasterize.js';
 
 describe('alphaFromRGBA', () => {
   it('extracts the alpha channel', () => {
@@ -33,5 +33,20 @@ describe('dilateCircular', () => {
     // r=1 disc → 5 cells (plus sign). At (2,2), neighbours are (1,2),(3,2),(2,1),(2,3),(2,2).
     const on = Array.from(out).map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
     expect(on.sort((a, b) => a - b)).toEqual([7, 11, 12, 13, 17]);
+  });
+});
+
+describe('padMask', () => {
+  it('adds transparent room around the source mask', () => {
+    const m = new Uint8Array([1, 0, 0, 1]);
+    const out = padMask(m, 2, 2, 1);
+    expect(out.width).toBe(4);
+    expect(out.height).toBe(4);
+    expect(Array.from(out.mask)).toEqual([
+      0, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 0,
+    ]);
   });
 });

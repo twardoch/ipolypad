@@ -28,6 +28,10 @@ The output is intentionally low-fidelity: text-wrap algorithms don't need
 a precise outline, they need a small polygon that hugs the visible shape with
 a sensible visual gap. ~32 vertices is the sweet spot.
 
+Padding is real geometry, not a clipped inset trick. If the padded silhouette
+extends outside the source image rectangle, the emitted polygon can contain
+negative percentages or values above `100%`.
+
 ## Pick your language
 
 - [Python]({{ '/usage/python/' | relative_url }}) — reference. Smart input
@@ -62,8 +66,8 @@ CSS:
 
 ```css
 .figure {
-  shape-outside: polygon(50.00% 2.00%, 81.00% 14.00%, /* ... */);
-  clip-path:     polygon(50.00% 2.00%, 81.00% 14.00%, /* ... */);
+  shape-outside: polygon(-1.28% 55.64%, 50.00% -8.20%, 103.52% 61.10%, /* ... */);
+  clip-path:     polygon(-1.28% 55.64%, 50.00% -8.20%, 103.52% 61.10%, /* ... */);
 }
 ```
 

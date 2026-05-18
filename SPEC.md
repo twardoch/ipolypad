@@ -4,8 +4,9 @@
 
 `ipolypad` turns an image (raster or SVG) into a **padded polygon hull** suitable
 for CSS `shape-outside`, `clip-path`, and HTML/canvas text-wrap algorithms.
-Output is small (typically 16–32 points), normalized (0..1), and faithful to
-the visible silhouette plus a configurable visual padding.
+Output is small (typically 16–32 points), normalized against the source image
+box, and faithful to the visible silhouette plus a configurable visual padding.
+Large padding may legitimately produce coordinates below 0 or above 1.
 
 Two implementations exist:
 
@@ -60,12 +61,12 @@ Resolve the source to raw bytes plus a guessed content type.
 
 ### 2.2 Rasterize
 
-Render SVG to RGBA at an internal canvas size of `size × size` with a transparent
+Render SVG to RGBA at an input canvas size of `size × size` with a transparent
 `margin`-px gutter on every side. The actual SVG render box is
 `inner = max(8, size − 2·margin)`. Raster inputs are scaled to fit `inner × inner`
 preserving aspect, then pasted centered onto the transparent canvas. The gutter
-exists so dilation (§2.4) has room to grow without clipping or wrapping at the
-canvas edges.
+is only source-placement breathing room; padding itself must not be clipped to
+this input canvas.
 
 **SVG sanitization (both):** strip root-level `width`, `height`, and inline
 `style="..."` attributes from the outermost `<svg>` so renderer-honoured CSS
@@ -79,10 +80,11 @@ This single fixed threshold is intentional — see §4.1 for the Python override
 
 ### 2.4 Pad (binary dilation)
 
-Dilate the binary mask by `pad` pixels using a **circular** structuring element
-of radius `pad`. The fixed Manhattan/cross structuring element used by many
-naive implementations is wrong here — it produces square corners on round
-silhouettes. Use Euclidean distance: `(x² + y²) ≤ r²`.
+First place the binary mask on a transparent working canvas expanded by `pad`
+pixels on every side. Then dilate by `pad` pixels using a **circular**
+structuring element of radius `pad`. The fixed Manhattan/cross structuring
+element used by many naive implementations is wrong here — it produces square
+corners on round silhouettes. Use Euclidean distance: `(x² + y²) ≤ r²`.
 
 Padding is expressed externally as a percentage of `size`; convert to pixels at
 the boundary: `pad_px = round(pad_pct / 100 · size)`.
@@ -132,10 +134,11 @@ and the algorithm returns nothing.
 
 ### 2.9 Normalize
 
-Divide every `(x, y)` by `(canvas_w, canvas_h)` — i.e. the rasterization box,
-**not** the polygon bounding box. This keeps the polygon registered against
-the source media's display rectangle so CSS `polygon()` percentages line up
-with the original image bounds.
+Subtract the working-canvas padding offset, then divide every `(x, y)` by the
+original input canvas `(canvas_w, canvas_h)` — **not** the polygon bounding box
+and not the expanded working canvas. This keeps the polygon registered against
+the source media's display rectangle while allowing padded coordinates to go
+below 0 or above 1.
 
 ### 2.10 Emit
 
@@ -158,7 +161,8 @@ Format the polygon as one of: `json` (both), `css` (both), `svg` / `png` / `html
 }
 ```
 
-- `points` are normalized 0..1, CCW ordering when `hull=true`.
+- `points` are normalized against the original image box, CCW ordering when
+  `hull=true`; large padding may produce values outside `[0, 1]`.
 - Trailing closing vertex is **not** included; the polygon is implicitly closed.
 - Floats serialized with the language default repr — for cross-language match
   use the rounding rule in §10.
@@ -331,6 +335,7 @@ parity. JS options are camelCase. The boundary mapping is fixed:
 
 ```
 uvx ipolypad trace <src> [--size 200] [--pad 6] [--max-points 32]
+                        [--pad_pct 3]
                         [--hull/--no-hull] [--format json,css,svg]
                         [--enhance/--no-enhance] [--bg-tolerance 12]
                         [--selector .target] [--out path]
@@ -452,9 +457,10 @@ the modules.
 
 - Python: `hatch-vcs`, git tag = source of truth, `ipolypad_py/src/ipolypad/__version__.py`
   generated and gitignored.
-- JS: same git tags drive `package.json` `version` via release script
-  (`scripts/sync-version.mjs` reads `git describe --tags --abbrev=0`).
-- A single tag releases both packages. `uvx gitnextver` handles the tag.
+- JS: the same git tag is applied to a temporary npm publish staging directory,
+  leaving the working tree clean.
+- A single tag releases both packages. `uvx gitnextver` handles the tag; `publish.sh`
+  refuses to publish unless HEAD is exactly tagged and the product tree is clean.
 
 ---
 

@@ -145,3 +145,19 @@ export function dilateCircular(mask: Uint8Array, w: number, h: number, radius: n
   }
   return out;
 }
+
+export function padMask(
+  mask: Uint8Array,
+  w: number,
+  h: number,
+  pad: number,
+): { mask: Uint8Array; width: number; height: number } {
+  if (pad <= 0) return { mask, width: w, height: h };
+  const width = w + 2 * pad;
+  const height = h + 2 * pad;
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < h; y++) {
+    out.set(mask.subarray(y * w, y * w + w), (y + pad) * width + pad);
+  }
+  return { mask: out, width, height };
+}

@@ -2,7 +2,7 @@
 // Live demo: drop an SVG/PNG → ipolypad-js polygon hull → pretext-flow text reflow.
 
 import { ipolypad, ipolypadJsonString, toCss } from './ipolypad.bundle.js';
-import { createAnimationController } from 'pretext-flow';
+import { flowLayout } from 'pretext-flow';
 
 // ── DOM refs ────────────────────────────────────────────────────────────
 const dz = document.getElementById('dz');
@@ -27,7 +27,6 @@ let currentSource = null;        // string (svg markup) or Uint8Array
 let currentSourceKind = null;    // 'svg' | 'image'
 let currentSourceDataUrl = null; // for preview
 let polygonResult = null;
-let controller = null;
 
 // ── Sample SVGs ─────────────────────────────────────────────────────────
 const SAMPLES = {
@@ -115,10 +114,6 @@ function setEmbedVisual(srcUrl) {
 
 function renderFlow() {
   if (!polygonResult) return;
-  if (controller) {
-    try { controller.destroy?.(); } catch {}
-    controller = null;
-  }
 
   // Compute embed footprint from the polygon's bbox (in normalized units).
   const pts = polygonResult.points;
@@ -129,49 +124,42 @@ function renderFlow() {
   }
   const stageRect = stage.getBoundingClientRect();
   const cssW = Math.max(420, Math.min(720, Math.floor(stageRect.width - 48)));
-  textCanvas.width = cssW * (window.devicePixelRatio || 1);
-  textCanvas.height = 480 * (window.devicePixelRatio || 1);
-  textCanvas.style.width = cssW + 'px';
-  textCanvas.style.height = '480px';
 
-  // Embed size: roughly 40% of column width
-  const eW = Math.round(cssW * 0.42);
+  // Embed size: large enough to prove the wrap, small enough to leave a readable column.
+  const eW = Math.round(cssW * 0.36);
   const eH = Math.round(eW);
-  // Place embed slightly left of centre
-  const eX = Math.round(cssW * 0.18);
-  const eY = 80;
+  const eX = Math.max(16, cssW - eW - 24);
+  const eY = 70;
 
   embedNode.style.width = eW + 'px';
   embedNode.style.height = eH + 'px';
   embedNode.style.left = eX + 'px';
   embedNode.style.top = eY + 'px';
 
-  // Convert normalized polygon to embed-local coords (in px).
-  const localPolygon = pts.map(([x, y]) => [
-    (x - minX) / Math.max(0.001, maxX - minX) * eW,
-    (y - minY) / Math.max(0.001, maxY - minY) * eH,
-  ]);
+  // pretext-flow expects normalized object points plus the embed pixel extent.
+  const localPolygon = pts.map(([x, y]) => ({
+    x: (x - minX) / Math.max(0.001, maxX - minX),
+    y: (y - minY) / Math.max(0.001, maxY - minY),
+  }));
 
-  // Build pretext-flow controller. Embed shape is a polygon hull.
   try {
-    controller = createAnimationController({
-      canvas: textCanvas,
+    const flow = flowLayout({
       text: SAMPLE_TEXT,
       font: '17px "Iowan Old Style", Georgia, serif',
       width: cssW,
       lineHeight: 26,
       paragraphGap: 10,
-      color: '#1c1e24',
+      minSlotWidth: 120,
       embeds: [
         {
           id: 'figure',
-          shape: { type: 'polygon', points: localPolygon },
-          margin: 12,
+          shape: { type: 'polygon', width: eW, height: eH, points: localPolygon },
+          margin: 14,
           position: { type: 'absolute', x: eX, y: eY },
         },
       ],
     });
-    controller.start?.();
+    drawFlow(flow, cssW);
   } catch (e) {
     // Fallback: just draw the text without flow if pretext-flow API drifts.
     console.warn('pretext-flow init failed, falling back to plain text', e);
@@ -179,10 +167,36 @@ function renderFlow() {
   }
 }
 
-function drawPlainFallback(cssW) {
+function prepareCanvas(cssW, cssH) {
+  const ratio = window.devicePixelRatio || 1;
+  textCanvas.width = Math.ceil(cssW * ratio);
+  textCanvas.height = Math.ceil(cssH * ratio);
+  textCanvas.style.width = cssW + 'px';
+  textCanvas.style.height = cssH + 'px';
   const ctx = textCanvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, cssW, cssH);
+  return ctx;
+}
+
+function drawFlow(flow, cssW) {
+  const cssH = Math.max(480, Math.ceil(flow.height + 32));
+  const ctx = prepareCanvas(cssW, cssH);
   if (!ctx) return;
-  ctx.setTransform(window.devicePixelRatio || 1, 0, 0, window.devicePixelRatio || 1, 0, 0);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, cssW, cssH);
+  ctx.fillStyle = '#1c1e24';
+  ctx.font = '17px "Iowan Old Style", Georgia, serif';
+  ctx.textBaseline = 'alphabetic';
+  for (const line of flow.lines) {
+    ctx.fillText(line.text, line.x, line.y + 20);
+  }
+}
+
+function drawPlainFallback(cssW) {
+  const ctx = prepareCanvas(cssW, 480);
+  if (!ctx) return;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, cssW, 480);
   ctx.fillStyle = '#1c1e24';

@@ -124,6 +124,7 @@ function cubic(
  *  flattened with `samplesPerCurve` samples. Matches the Python flattener. */
 export function parsePotraceSvg(svg: string, samplesPerCurve: number): Point[][] {
   const polygons: Point[][] = [];
+  const transform = parseGroupTransform(svg);
   const pathRe = /<path[^>]*\sd="([^"]+)"/g;
   let pathMatch: RegExpExecArray | null;
   while ((pathMatch = pathRe.exec(svg)) !== null) {
@@ -133,7 +134,7 @@ export function parsePotraceSvg(svg: string, samplesPerCurve: number): Point[][]
     let start: Point | null = null;
     let buf: Point[] = [];
     const flush = () => {
-      if (buf.length >= 3) polygons.push(buf);
+      if (buf.length >= 3) polygons.push(buf.map(transform));
       buf = [];
     };
     for (const cmd of cmds) {
@@ -163,6 +164,18 @@ export function parsePotraceSvg(svg: string, samplesPerCurve: number): Point[][]
     if (buf.length > 0) flush();
   }
   return polygons;
+}
+
+function parseGroupTransform(svg: string): (point: Point) => Point {
+  const match = svg.match(
+    /<g[^>]*\btransform="translate\(\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*\)\s*scale\(\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*\)"/,
+  );
+  if (!match) return (point: Point) => point;
+  const tx = parseFloat(match[1]!);
+  const ty = parseFloat(match[2]!);
+  const sx = parseFloat(match[3]!);
+  const sy = parseFloat(match[4]!);
+  return ([x, y]: Point) => [tx + x * sx, ty + y * sy];
 }
 
 /** End-to-end: binary mask → polygon list. */

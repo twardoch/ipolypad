@@ -20,32 +20,63 @@ log()  { printf "${YELLOW}▶ %s${RESET}\n" "$*"; }
 ok()   { printf "${GREEN}✓ %s${RESET}\n" "$*"; }
 die()  { printf "${RED}✗ %s${RESET}\n" "$*" >&2; exit 1; }
 
+dirty_status() {
+  git status --porcelain --untracked-files=all -- . ':!.omc'
+}
+
+require_clean_tree() {
+  local status
+  status="$(dirty_status)"
+  if [[ -n "$status" ]]; then
+    printf "%s\n" "$status" >&2
+    die "working tree has uncommitted product changes; commit or stash before publishing"
+  fi
+}
+
 # ── Safety ────────────────────────────────────────────────────────────────
-if [[ -n "$(git status --porcelain)" ]]; then
-  die "working tree is dirty; commit or stash first"
-fi
+require_clean_tree
 if ! TAG="$(git describe --exact-match --tags HEAD 2>/dev/null)"; then
   die "HEAD has no exact tag; run \`uvx gitnextver\` first"
 fi
 log "publishing tag $TAG"
+VERSION="${TAG#v}"
 
 # ── Build first ───────────────────────────────────────────────────────────
 "$ROOT/build.sh"
+require_clean_tree
 
 # ── Python ────────────────────────────────────────────────────────────────
 log "publish python (PyPI)"
 cd "$ROOT/ipolypad_py"
 # `uv publish` reads UV_PUBLISH_TOKEN or PyPI creds in ~/.pypirc
-uv publish dist/*
+uv publish "dist/ipolypad-${VERSION}.tar.gz" "dist/ipolypad-${VERSION}-py3-none-any.whl"
 ok "python published"
 
 # ── JavaScript ────────────────────────────────────────────────────────────
 log "publish javascript (npm)"
 cd "$ROOT/ipolypad_js"
-# Sync package.json version to the git tag (strip leading v)
-VERSION="${TAG#v}"
-node --experimental-strip-types -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('package.json','utf8')); p.version='$VERSION'; fs.writeFileSync('package.json', JSON.stringify(p,null,2)+'\n');" 2>/dev/null || \
-  npm version "$VERSION" --no-git-tag-version >/dev/null
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+rsync -a \
+  --exclude node_modules \
+  --exclude .npm \
+  --exclude .turbo \
+  --exclude .cache \
+  "$ROOT/ipolypad_js/" "$TMPDIR/ipolypad_js/"
+cp "$ROOT/LICENSE" "$TMPDIR/ipolypad_js/LICENSE"
+cd "$TMPDIR/ipolypad_js"
+node - "$VERSION" <<'NODE'
+const fs = require('fs');
+const version = process.argv[2];
+for (const file of ['package.json', 'package-lock.json']) {
+  const path = file;
+  if (!fs.existsSync(path)) continue;
+  const data = JSON.parse(fs.readFileSync(path, 'utf8'));
+  data.version = version;
+  if (data.packages?.['']) data.packages[''].version = version;
+  fs.writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`);
+}
+NODE
 npm publish --access public
 ok "javascript published as ipolypad-js@$VERSION"
 

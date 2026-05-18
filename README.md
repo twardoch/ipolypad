@@ -21,6 +21,10 @@ The output is intentionally low-fidelity: text-wrap engines don't need a
 precise outline, they need a small polygon that hugs the visible shape with a
 sensible visual gap.
 
+Padding is not clipped to the source rectangle. Large pads can produce
+negative CSS percentages or values above `100%`, which is the correct result
+when the padded hull is larger than the image.
+
 ## Two implementations, one spec
 
 - **[`ipolypad`](./ipolypad_py/)** (Python) — the reference. Smart input
@@ -48,7 +52,7 @@ uvx ipolypad trace dragon.svg --pad 6 --max-points 32 --out dragon.json
 uvx ipolypad trace dragon.svg --format css --selector ".figure" --out dragon.css
 
 # Photograph with colour-distance background detection
-uvx ipolypad trace photo.jpg --enhance --bg-tolerance 14 --pad-pct 4
+uvx ipolypad trace photo.jpg --enhance --bg-tolerance 14 --pad_pct 4
 
 # Batch a folder in parallel
 uvx ipolypad batch 'icons/*.svg' --out-dir dist/ --max-points 24
@@ -89,9 +93,9 @@ Default JSON:
 }
 ```
 
-`points` are normalized 0..1 against the rasterization box (not the polygon
-bounding box), so CSS `polygon()` percentages line up with the source image's
-display rectangle.
+`points` are normalized against the source image's rasterization box (not the
+polygon bounding box). Large padding may push coordinates below `0` or above
+`1`, so CSS percentages can be negative or exceed `100%`.
 
 CSS form:
 
@@ -113,8 +117,9 @@ Eight stages. Both implementations agree on every numeric:
 3. **Mask** — JS: fixed `alpha > 24`. Python: Otsu on alpha, with
    Lab-ΔE-from-background fallback for opaque inputs and Sauvola escalation
    for pathological cases.
-4. **Pad** — circular binary dilation (Euclidean structuring element, not
-   Manhattan — round shapes deserve round padding).
+4. **Pad** — expand the working canvas by the pad amount, then perform circular
+   binary dilation (Euclidean structuring element, not Manhattan — round shapes
+   deserve round padding).
 5. **Trace** — potrace with `turdsize=2, turnpolicy=0, alphamax=1.0`,
    then flatten beziers at 4 samples per curve.
 6. **Outer shell** — pick the largest curve whose area is < 95% of the
@@ -153,7 +158,8 @@ model, cross-language parity, performance targets.
 ## Develop
 
 ```bash
-# One-shot: install everything + run all tests (Python + JS + parity)
+# Release-style build: requires a clean product tree, regenerates docs demo bundle,
+# cleans Python artifacts, builds both packages, then runs all tests.
 ./build.sh
 
 # Python only
@@ -170,7 +176,12 @@ pytest tests/parity/
 
 A single git tag releases both packages. Use `uvx gitnextver` to cut the next
 tag, then `./publish.sh` to push to PyPI + npm. The publish script refuses to
-run unless HEAD has an exact tag and the working tree is clean.
+run unless HEAD has an exact tag and the product tree is clean.
+
+Python versions come from `hatch-vcs`; the generated
+`ipolypad_py/src/ipolypad/__version__.py` is ignored and must not be committed.
+The npm package is staged with the git tag version during publish, so
+`package.json` does not need a release-only edit.
 
 ## Acknowledgements
 

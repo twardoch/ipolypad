@@ -7,7 +7,7 @@ import {
   rasterizeImageBytes,
   rasterizeSvg,
 } from './canvas.js';
-import { alphaFromRGBA, dilateCircular, maskFixed, resolveSource } from './rasterize.js';
+import { alphaFromRGBA, dilateCircular, maskFixed, padMask, resolveSource } from './rasterize.js';
 import {
   convexHull,
   decimate,
@@ -89,17 +89,18 @@ export async function ipolypad(input: Source, options: Options = {}): Promise<Js
   }
   if (!any) throw new EmptyMaskError('no foreground above alpha threshold (24)');
 
-  mask = dilateCircular(mask, pixels.width, pixels.height, pad);
-  const polygons = await traceMask(mask, pixels.width, pixels.height, samplesPerCurve);
+  const work = padMask(mask, pixels.width, pixels.height, pad);
+  mask = dilateCircular(work.mask, work.width, work.height, pad);
+  const polygons = await traceMask(mask, work.width, work.height, samplesPerCurve);
   if (polygons.length === 0) throw new TraceEmptyError('potrace produced no curves');
 
-  const canvasArea = pixels.width * pixels.height;
+  const canvasArea = work.width * work.height;
   let best = pickOuterShell(polygons, canvasArea);
   if (!best) throw new OnlyFrameError('only the bitmap-frame curve was traced');
 
   let pts = hull ? convexHull(best) : best;
   pts = decimate(pts, maxPoints);
-  pts = normalize(pts, pixels.width, pixels.height);
+  pts = normalize(pts, pixels.width, pixels.height, pad, pad);
 
   const payload = buildPayload({
     src: resolved.src,

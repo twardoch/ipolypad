@@ -67,3 +67,9 @@ def test_normalize_uses_canvas_box_not_bbox() -> None:
     pts = [(50, 50), (60, 50), (60, 60), (50, 60)]
     out = normalize(pts, 100, 100)
     assert out == [(0.5, 0.5), (0.6, 0.5), (0.6, 0.6), (0.5, 0.6)]
+
+
+def test_normalize_can_undo_work_canvas_offset() -> None:
+    pts = [(0, 0), (120, 120)]
+    out = normalize(pts, 100, 100, offset_x=10, offset_y=20)
+    assert out == [(-0.1, -0.2), (1.1, 1.0)]

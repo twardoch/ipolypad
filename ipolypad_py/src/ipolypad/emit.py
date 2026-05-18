@@ -133,7 +133,7 @@ def to_html(
     body {{ font-family: -apple-system, system-ui, sans-serif; padding: 24px; background: #f6f7f9; }}
     .stage {{ position: relative; width: {width}px; height: {height}px; }}
     .stage img {{ position: absolute; inset: 0; width: 100%; height: 100%; }}
-    .stage svg {{ position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }}
+    .stage svg {{ position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }}
     code {{ display: block; white-space: pre-wrap; background: #fff; padding: 12px; border: 1px solid #e2e6ec; border-radius: 6px; }}
   </style>
 </head>

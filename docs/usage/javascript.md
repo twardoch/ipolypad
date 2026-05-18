@@ -57,6 +57,10 @@ const css = await ipolypad(svgElement, {
 | `format`          | `'json'`| `'json'` or `'css'`.                   |
 | `selector`        | —       | Wrap CSS in a selector block.          |
 
+Padding is applied on an expanded working canvas, then normalized back to the
+original image box. Large pads can produce points outside `[0, 1]`, which turn
+into negative CSS percentages or values above `100%`.
+
 ## What's deliberately out
 
 The JS package does NOT do colour-distance background detection,

@@ -48,6 +48,18 @@ def test_trace_star(sample_svg_star: Path) -> None:
     assert no_hull["n_points"] >= with_hull["n_points"]
 
 
+def test_large_pad_can_extend_beyond_original_image(sample_svg: Path) -> None:
+    result = trace(str(sample_svg), size=200, margin=0, pad=30, max_points=24)
+    xs = [x for x, _ in result["points"]]
+    ys = [y for _, y in result["points"]]
+    assert min(xs) < 0.0, "left padding should extend outside the image box"
+    assert max(xs) > 1.0, "right padding should extend outside the image box"
+    assert min(ys) < 0.0, "top padding should extend outside the image box"
+    assert max(ys) > 1.0, "bottom padding should extend outside the image box"
+    assert result["raster"]["width"] == 200
+    assert result["raster"]["height"] == 200
+
+
 def test_invalid_format_raises(sample_svg: Path) -> None:
     with pytest.raises(ValueError):
         trace(str(sample_svg), format="bogus")  # type: ignore[arg-type]
