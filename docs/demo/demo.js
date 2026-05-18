@@ -118,13 +118,7 @@ function setEmbedVisual(srcUrl) {
 function renderFlow() {
   if (!polygonResult) return;
 
-  // Compute embed footprint from the polygon's bbox (in normalized units).
   const pts = polygonResult.points;
-  let minX = 1, maxX = 0, minY = 1, maxY = 0;
-  for (const [x, y] of pts) {
-    if (x < minX) minX = x; if (x > maxX) maxX = x;
-    if (y < minY) minY = y; if (y > maxY) maxY = y;
-  }
   const stageRect = stage.getBoundingClientRect();
   const cssW = Math.max(420, Math.min(720, Math.floor(stageRect.width - 48)));
 
@@ -148,10 +142,12 @@ function renderFlow() {
   embedNode.style.left = (eX + stagePadLeft) + 'px';
   embedNode.style.top = (eY + stagePadTop) + 'px';
 
-  // pretext-flow expects normalized object points plus the embed pixel extent.
+  // pretext-flow scales normalized points over the visible image extent.
+  // Keep ipolypad's original image-box coordinates intact; do not bbox-normalize
+  // here, or negative padding and inset silhouettes stop matching the preview.
   const localPolygon = pts.map(([x, y]) => ({
-    x: (x - minX) / Math.max(0.001, maxX - minX),
-    y: (y - minY) / Math.max(0.001, maxY - minY),
+    x,
+    y,
   }));
 
   try {
