@@ -7,6 +7,20 @@ from pathlib import Path
 import pytest
 
 from ipolypad import trace
+from ipolypad.rasterize import _strip_root_attrs
+
+
+def test_strip_root_attrs_preserves_child_style() -> None:
+    svg = '<svg width="10" height="20" style="transform: scale(-1,1)" viewBox="0 0 10 20"><g style="fill:red"/></svg>'
+    assert (
+        _strip_root_attrs(svg)
+        == '<svg viewBox="0 0 10 20"><g style="fill:red"/></svg>'
+    )
+
+
+def test_strip_root_attrs_handles_single_quoted_and_unquoted_values() -> None:
+    svg = "<svg width='10' height=20 style='transform: scale(-1,1)' viewBox='0 0 10 20'><path/></svg>"
+    assert _strip_root_attrs(svg) == "<svg viewBox='0 0 10 20'><path/></svg>"
 
 
 def test_trace_circle_svg_yields_polygon(sample_svg: Path) -> None:

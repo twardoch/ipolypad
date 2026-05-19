@@ -124,11 +124,7 @@ function classifyBytes(data, src) {
   return { kind: "image", data, src };
 }
 function sanitizeSvg(markup) {
-  let out = markup;
-  out = out.replace(/(<svg\b[^>]*?)\s+width="[^"]*"/i, "$1");
-  out = out.replace(/(<svg\b[^>]*?)\s+height="[^"]*"/i, "$1");
-  out = out.replace(/(<svg\b[^>]*?)\s+style="[^"]*"/i, "$1");
-  return out;
+  return markup.replace(/<svg\b[^>]*>/i, (root) => root.replace(/\s+(?:width|height|style)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ""));
 }
 function alphaFromRGBA(rgba, w, h) {
   const out = new Uint8Array(w * h);
@@ -701,6 +697,7 @@ export {
   pickOuterShell,
   polygonArea,
   rdp,
+  sanitizeSvg,
   setNodeCanvasFactory,
   setPotrace,
   toCss,

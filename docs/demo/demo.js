@@ -1,7 +1,7 @@
 // this_file: docs/demo/demo.js
 // Live demo: drop an SVG/PNG → ipolypad-js polygon hull → pretext-flow text reflow.
 
-import { ipolypad, ipolypadJsonString, toCss } from './ipolypad.bundle.js';
+import { ipolypad, ipolypadJsonString, sanitizeSvg, toCss } from './ipolypad.bundle.js';
 import { flowLayout } from 'pretext-flow';
 
 // ── DOM refs ────────────────────────────────────────────────────────────
@@ -282,9 +282,10 @@ embedNode.addEventListener('pointercancel', endEmbedDrag);
 
 // ── Input handlers ──────────────────────────────────────────────────────
 async function loadSvgMarkup(markup, label = '<inline svg>') {
-  currentSource = markup;
+  const cleanMarkup = sanitizeSvg(markup);
+  currentSource = cleanMarkup;
   currentSourceKind = 'svg';
-  currentSourceDataUrl = makeSvgDataUrl(markup);
+  currentSourceDataUrl = makeSvgDataUrl(cleanMarkup);
   embedPosition = null;
   embedWasDragged = false;
   showSourcePreview(currentSourceDataUrl);

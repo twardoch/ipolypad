@@ -1,6 +1,18 @@
 // this_file: ipolypad_js/tests/rasterize.test.ts
 import { describe, expect, it } from 'vitest';
-import { alphaFromRGBA, dilateCircular, erodeCircular, maskFixed, padMask } from '../src/rasterize.js';
+import { alphaFromRGBA, dilateCircular, erodeCircular, maskFixed, padMask, sanitizeSvg } from '../src/rasterize.js';
+
+describe('sanitizeSvg', () => {
+  it('strips sizing and style attributes from the root svg only', () => {
+    const svg = '<svg width="10" height="20" style="transform: scale(-1,1)" viewBox="0 0 10 20"><g style="fill:red"/></svg>';
+    expect(sanitizeSvg(svg)).toBe('<svg viewBox="0 0 10 20"><g style="fill:red"/></svg>');
+  });
+
+  it('handles single-quoted and unquoted root attributes', () => {
+    const svg = "<svg width='10' height=20 style='transform: scale(-1,1)' viewBox='0 0 10 20'><path/></svg>";
+    expect(sanitizeSvg(svg)).toBe("<svg viewBox='0 0 10 20'><path/></svg>");
+  });
+});
 
 describe('alphaFromRGBA', () => {
   it('extracts the alpha channel', () => {

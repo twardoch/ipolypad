@@ -14,10 +14,18 @@ _RESAMPLE = getattr(Image, "Resampling", Image).LANCZOS
 
 def _strip_root_attrs(svg_str: str) -> str:
     """Strip width/height/style from the root <svg>. Load-bearing for Qt SVGs."""
-    svg_str = re.sub(r'(<svg\b[^>]*?)\s+width="[^"]*"', r"\1", svg_str, count=1)
-    svg_str = re.sub(r'(<svg\b[^>]*?)\s+height="[^"]*"', r"\1", svg_str, count=1)
-    svg_str = re.sub(r'(<svg\b[^>]*?)\s+style="[^"]*"', r"\1", svg_str, count=1)
-    return svg_str
+    return re.sub(
+        r"<svg\b[^>]*>",
+        lambda match: re.sub(
+            r"""\s+(?:width|height|style)=(?:"[^"]*"|'[^']*'|[^\s>]+)""",
+            "",
+            match.group(0),
+            flags=re.IGNORECASE,
+        ),
+        svg_str,
+        count=1,
+        flags=re.IGNORECASE,
+    )
 
 
 def rasterize(data: bytes, *, size: int, margin: int, is_svg: bool) -> Image.Image:

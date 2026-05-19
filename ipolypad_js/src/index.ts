@@ -46,6 +46,7 @@ export {
   polygonArea,
   rdp,
 } from './simplify.js';
+export { sanitizeSvg } from './rasterize.js';
 
 const DEFAULTS = {
   size: 200,

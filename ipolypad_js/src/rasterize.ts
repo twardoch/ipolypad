@@ -92,11 +92,10 @@ function classifyBytes(
 
 /** Strip width/height/style from root <svg>. SPEC §2.2. */
 export function sanitizeSvg(markup: string): string {
-  let out = markup;
-  out = out.replace(/(<svg\b[^>]*?)\s+width="[^"]*"/i, '$1');
-  out = out.replace(/(<svg\b[^>]*?)\s+height="[^"]*"/i, '$1');
-  out = out.replace(/(<svg\b[^>]*?)\s+style="[^"]*"/i, '$1');
-  return out;
+  return markup.replace(/<svg\b[^>]*>/i, (root) => (
+    root
+      .replace(/\s+(?:width|height|style)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+  ));
 }
 
 /** Pull alpha (uint8) from RGBA H×W pixels into a Uint8Array of length H*W. */
