@@ -91,7 +91,8 @@ css = trace("dragon.svg", format="css", selector=".figure", out="dragon.css")
 ## Smart input handling
 
 - **SVG**: rasterized at the requested size, root `width`/`height`/`style`
-  stripped to neutralise Qt-exported CSS transforms.
+  neutralised during rasterization, then reapplied to the output hull when they
+  express a root mirror transform such as Qt-exported `scale(-1,1)`.
 - **PNG / WebP / GIF / TIFF / BMP** with alpha: Otsu-thresholded alpha,
   fallback to a fixed 24 cutoff if Otsu is degenerate.
 - **JPEG / opaque images**: background colour estimated from the corner/edge

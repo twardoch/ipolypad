@@ -2,7 +2,7 @@
 // Cross-environment canvas rasterizer. Browser uses OffscreenCanvas/HTMLCanvasElement;
 // Node falls back to the `canvas` package if available.
 
-import { sanitizeSvg } from './rasterize.js';
+import { prepareSvgForRaster } from './rasterize.js';
 
 export interface RasterPixels {
   width: number;
@@ -70,7 +70,7 @@ async function loadImageBrowser(src: string | Uint8Array): Promise<HTMLImageElem
 /** Rasterize an SVG markup string to RGBA of size×size with a transparent gutter. */
 export async function rasterizeSvg(markup: string, size: number, margin: number): Promise<RasterPixels> {
   const inner = Math.max(8, size - 2 * margin);
-  const clean = sanitizeSvg(markup);
+  const clean = prepareSvgForRaster(markup);
   // Force inner-box dimensions so the browser/canvas paints at our size.
   const sized = clean.replace(/<svg\b/, `<svg width="${inner}" height="${inner}"`);
   if (isBrowser() || typeof OffscreenCanvas !== 'undefined') {

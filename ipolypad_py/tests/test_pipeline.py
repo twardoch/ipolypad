@@ -7,20 +7,62 @@ from pathlib import Path
 import pytest
 
 from ipolypad import trace
-from ipolypad.rasterize import _strip_root_attrs
+from ipolypad.rasterize import (
+    _prepare_svg_for_raster,
+    apply_svg_root_transform,
+    detect_svg_root_transform,
+)
 
 
-def test_strip_root_attrs_preserves_child_style() -> None:
+def test_prepare_svg_for_raster_preserves_child_style() -> None:
     svg = '<svg width="10" height="20" style="transform: scale(-1,1)" viewBox="0 0 10 20"><g style="fill:red"/></svg>'
     assert (
-        _strip_root_attrs(svg)
+        _prepare_svg_for_raster(svg)
         == '<svg viewBox="0 0 10 20"><g style="fill:red"/></svg>'
     )
 
 
-def test_strip_root_attrs_handles_single_quoted_and_unquoted_values() -> None:
+def test_prepare_svg_for_raster_handles_single_quoted_and_unquoted_values() -> None:
     svg = "<svg width='10' height=20 style='transform: scale(-1,1)' viewBox='0 0 10 20'><path/></svg>"
-    assert _strip_root_attrs(svg) == "<svg viewBox='0 0 10 20'><path/></svg>"
+    assert _prepare_svg_for_raster(svg) == "<svg viewBox='0 0 10 20'><path/></svg>"
+
+
+def test_detect_svg_root_transform_finds_horizontal_style_flip() -> None:
+    svg = '<svg style="transform: scale(-1,1)" viewBox="0 0 10 20"><path/></svg>'
+    assert detect_svg_root_transform(svg) == (True, False)
+
+
+def test_detect_svg_root_transform_finds_horizontal_matrix_flip() -> None:
+    svg = '<svg transform="matrix(-1,0,0,1,0,0)" viewBox="0 0 10 20"><path/></svg>'
+    assert detect_svg_root_transform(svg) == (True, False)
+
+
+def test_apply_svg_root_transform_mirrors_normalized_points() -> None:
+    pts = apply_svg_root_transform(
+        [(0.1, 0.0), (0.8, 0.2), (0.2, 0.9)], (True, False)
+    )
+    assert pts == [(0.8, 0.9), (0.19999999999999996, 0.2), (0.9, 0.0)]
+
+
+def test_trace_applies_root_horizontal_flip_to_hull(tmp_path: Path) -> None:
+    plain = tmp_path / "plain.svg"
+    flipped = tmp_path / "flipped.svg"
+    body = '<rect x="10" y="40" width="35" height="20" fill="black"/>'
+    plain.write_text(
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">{body}</svg>'
+    )
+    flipped.write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" '
+        f'style="transform: scale(-1,1)">{body}</svg>'
+    )
+
+    plain_result = trace(str(plain), size=100, margin=0, pad=0, max_points=8)
+    flipped_result = trace(str(flipped), size=100, margin=0, pad=0, max_points=8)
+
+    plain_xs = [x for x, _ in plain_result["points"]]
+    flipped_xs = [x for x, _ in flipped_result["points"]]
+    assert min(flipped_xs) == pytest.approx(1.0 - max(plain_xs), abs=0.02)
+    assert max(flipped_xs) == pytest.approx(1.0 - min(plain_xs), abs=0.02)
 
 
 def test_trace_circle_svg_yields_polygon(sample_svg: Path) -> None:

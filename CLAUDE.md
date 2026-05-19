@@ -65,9 +65,10 @@ suite. Diverging silently is the failure mode this repo exists to prevent.
 
 - Input can be local path, `http(s)://` URL, `data:` URL, or in-memory bytes
   (Python additionally accepts more raster formats than JS — see SPEC §1.2).
-- SVG sanitization (strip root `width`/`height`/`style`) is load-bearing for
-  Qt-exported SVGs that include `transform: scale(-1,1)`. Both implementations
-  must do it.
+- SVG root transform handling is load-bearing for Qt-exported SVGs that include
+  `transform: scale(-1,1)`: neutralize root sizing/transform attrs for internal
+  rasterization, then reapply detected mirror transforms to the output hull.
+  Both implementations must do it.
 - Padding is expressed externally as % of `size` (CLI/API ergonomics) and
   internally in pixels (numerics). Convert at the boundary.
 - Convex hull is on by default for good reason (SPEC §2.7); don't disable

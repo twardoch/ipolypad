@@ -1,16 +1,47 @@
 // this_file: ipolypad_js/tests/rasterize.test.ts
 import { describe, expect, it } from 'vitest';
-import { alphaFromRGBA, dilateCircular, erodeCircular, maskFixed, padMask, sanitizeSvg } from '../src/rasterize.js';
+import {
+  alphaFromRGBA,
+  applySvgRootTransform,
+  detectSvgRootTransform,
+  dilateCircular,
+  erodeCircular,
+  maskFixed,
+  padMask,
+  prepareSvgForRaster,
+} from '../src/rasterize.js';
 
-describe('sanitizeSvg', () => {
-  it('strips sizing and style attributes from the root svg only', () => {
+describe('prepareSvgForRaster', () => {
+  it('neutralizes sizing and transform attrs on the root svg only', () => {
     const svg = '<svg width="10" height="20" style="transform: scale(-1,1)" viewBox="0 0 10 20"><g style="fill:red"/></svg>';
-    expect(sanitizeSvg(svg)).toBe('<svg viewBox="0 0 10 20"><g style="fill:red"/></svg>');
+    expect(prepareSvgForRaster(svg)).toBe('<svg viewBox="0 0 10 20"><g style="fill:red"/></svg>');
   });
 
   it('handles single-quoted and unquoted root attributes', () => {
     const svg = "<svg width='10' height=20 style='transform: scale(-1,1)' viewBox='0 0 10 20'><path/></svg>";
-    expect(sanitizeSvg(svg)).toBe("<svg viewBox='0 0 10 20'><path/></svg>");
+    expect(prepareSvgForRaster(svg)).toBe("<svg viewBox='0 0 10 20'><path/></svg>");
+  });
+});
+
+describe('detectSvgRootTransform', () => {
+  it('detects horizontal flips in root style transforms', () => {
+    const svg = '<svg style="transform: scale(-1,1)" viewBox="0 0 10 20"><path/></svg>';
+    expect(detectSvgRootTransform(svg)).toEqual({ flipX: true, flipY: false });
+  });
+
+  it('detects horizontal flips in root matrix transforms', () => {
+    const svg = '<svg transform="matrix(-1,0,0,1,0,0)" viewBox="0 0 10 20"><path/></svg>';
+    expect(detectSvgRootTransform(svg)).toEqual({ flipX: true, flipY: false });
+  });
+});
+
+describe('applySvgRootTransform', () => {
+  it('mirrors normalized points around the source image box', () => {
+    const pts = applySvgRootTransform([[0.1, 0], [0.8, 0.2], [0.2, 0.9]], { flipX: true, flipY: false });
+    expect(pts[0]).toEqual([0.8, 0.9]);
+    expect(pts[1]![0]).toBeCloseTo(0.2);
+    expect(pts[1]![1]).toBe(0.2);
+    expect(pts[2]).toEqual([0.9, 0]);
   });
 });
 

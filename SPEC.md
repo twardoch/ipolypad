@@ -68,10 +68,12 @@ preserving aspect, then pasted centered onto the transparent canvas. The gutter
 is only source-placement breathing room; padding itself must not be clipped to
 this input canvas.
 
-**SVG sanitization (both):** strip root-level `width`, `height`, and inline
-`style="..."` attributes from the outermost `<svg>` so renderer-honoured CSS
-transforms (notably Qt-exported `transform: scale(-1,1)`) don't push content
-outside the viewBox.
+**SVG root transforms (both):** root-level `width`, `height`, `style`, and
+`transform` attributes are neutralized only for the internal rasterization step
+so renderer-honoured transforms don't push content outside the viewBox. If the
+root SVG declares a mirror transform (notably Qt-exported
+`style="transform: scale(-1,1)"`), detect it and apply the equivalent transform
+to the normalized output polygon.
 
 ### 2.3 Mask
 

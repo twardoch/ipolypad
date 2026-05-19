@@ -1,7 +1,12 @@
 // this_file: ipolypad_js/src/rasterize.ts
 // SPEC §2.1–§2.4. Source → alpha mask. Browser-first; Node-compatible via 'canvas' package.
 
-import { SourceError, type Source } from './types.js';
+import { SourceError, type Point, type Source } from './types.js';
+
+export interface SvgRootTransform {
+  flipX: boolean;
+  flipY: boolean;
+}
 
 /** Resolve any accepted Source to either { svg: string } or { png: Uint8Array }. */
 export async function resolveSource(input: Source): Promise<
@@ -90,12 +95,73 @@ function classifyBytes(
   return { kind: 'image', data, src };
 }
 
-/** Strip width/height/style from root <svg>. SPEC §2.2. */
-export function sanitizeSvg(markup: string): string {
+/** Neutralize root sizing/transform attrs for stable rasterization. SPEC §2.2. */
+export function prepareSvgForRaster(markup: string): string {
   return markup.replace(/<svg\b[^>]*>/i, (root) => (
     root
-      .replace(/\s+(?:width|height|style)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\s+(?:width|height|style|transform)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
   ));
+}
+
+/** Backwards-compatible alias. Prefer `prepareSvgForRaster`. */
+export const sanitizeSvg = prepareSvgForRaster;
+
+export function detectSvgRootTransform(markup: string): SvgRootTransform {
+  const root = markup.match(/<svg\b[^>]*>/i)?.[0] ?? '';
+  const transformParts: string[] = [];
+  const style = readRootAttr(root, 'style');
+  if (style) {
+    const match = style.match(/(?:^|;)\s*transform\s*:\s*([^;]+)/i);
+    if (match?.[1]) transformParts.push(match[1]);
+  }
+  const transform = readRootAttr(root, 'transform');
+  if (transform) transformParts.push(transform);
+
+  let flipX = false;
+  let flipY = false;
+  for (const part of transformParts) {
+    const flags = detectFlip(part);
+    flipX = flipX !== flags.flipX;
+    flipY = flipY !== flags.flipY;
+  }
+  return { flipX, flipY };
+}
+
+export function applySvgRootTransform(points: Point[], transform: SvgRootTransform): Point[] {
+  if (!transform.flipX && !transform.flipY) return points;
+  const out = points.map(([x, y]) => [
+    transform.flipX ? 1 - x : x,
+    transform.flipY ? 1 - y : y,
+  ] as Point);
+  return (transform.flipX !== transform.flipY) ? out.reverse() : out;
+}
+
+function readRootAttr(root: string, name: string): string | null {
+  const match = root.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
+  return match ? (match[1] ?? match[2] ?? match[3] ?? '') : null;
+}
+
+function detectFlip(transform: string): SvgRootTransform {
+  let flipX = false;
+  let flipY = false;
+  const number = '[-+]?(?:\\d*\\.\\d+|\\d+)(?:e[-+]?\\d+)?';
+  for (const match of transform.matchAll(new RegExp(`scaleX\\(\\s*(${number})\\s*\\)`, 'gi'))) {
+    flipX = flipX !== (parseFloat(match[1]!) < 0);
+  }
+  for (const match of transform.matchAll(new RegExp(`scaleY\\(\\s*(${number})\\s*\\)`, 'gi'))) {
+    flipY = flipY !== (parseFloat(match[1]!) < 0);
+  }
+  for (const match of transform.matchAll(new RegExp(`scale\\(\\s*(${number})(?:[\\s,]+(${number}))?\\s*\\)`, 'gi'))) {
+    const sx = parseFloat(match[1]!);
+    const sy = match[2] === undefined ? sx : parseFloat(match[2]);
+    flipX = flipX !== (sx < 0);
+    flipY = flipY !== (sy < 0);
+  }
+  for (const match of transform.matchAll(new RegExp(`matrix\\(\\s*(${number})[\\s,]+${number}[\\s,]+${number}[\\s,]+(${number})[\\s,]+${number}[\\s,]+${number}\\s*\\)`, 'gi'))) {
+    flipX = flipX !== (parseFloat(match[1]!) < 0);
+    flipY = flipY !== (parseFloat(match[2]!) < 0);
+  }
+  return { flipX, flipY };
 }
 
 /** Pull alpha (uint8) from RGBA H×W pixels into a Uint8Array of length H*W. */

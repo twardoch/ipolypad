@@ -11,7 +11,12 @@ from .color import autoenhance, mask_fixed, mask_smart
 from .emit import emit
 from .errors import EmptyMaskError, OnlyFrameError, TraceEmptyError
 from .fetch import fetch, is_svg
-from .rasterize import alpha_array, rasterize
+from .rasterize import (
+    alpha_array,
+    apply_svg_root_transform,
+    detect_svg_root_transform,
+    rasterize,
+)
 from .simplify import convex_hull, decimate, normalize, pick_outer_shell, polygon_area
 from .trace import dilate_circular, erode_circular, trace_mask
 
@@ -55,6 +60,11 @@ def trace(
     pad_px = _resolve_pad(pad=pad, pad_pct=pad_pct, size=size)
     data = fetch(src)
     svg_flag = is_svg(src, data)
+    svg_root_transform = (
+        detect_svg_root_transform(data.decode("utf-8"))
+        if svg_flag
+        else (False, False)
+    )
 
     if enhance is None:
         enhance = not svg_flag
@@ -100,6 +110,7 @@ def trace(
     pts = convex_hull(best) if hull else best
     pts = decimate(pts, max_points)
     pts = normalize(pts, w, h, offset_x=offset, offset_y=offset)
+    pts = apply_svg_root_transform(pts, svg_root_transform)
 
     if format == "json":
         payload_str = emit(

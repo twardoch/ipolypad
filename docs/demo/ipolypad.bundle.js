@@ -123,8 +123,62 @@ function classifyBytes(data, src) {
   }
   return { kind: "image", data, src };
 }
-function sanitizeSvg(markup) {
-  return markup.replace(/<svg\b[^>]*>/i, (root) => root.replace(/\s+(?:width|height|style)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ""));
+function prepareSvgForRaster(markup) {
+  return markup.replace(/<svg\b[^>]*>/i, (root) => root.replace(/\s+(?:width|height|style|transform)=(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, ""));
+}
+var sanitizeSvg = prepareSvgForRaster;
+function detectSvgRootTransform(markup) {
+  const root = markup.match(/<svg\b[^>]*>/i)?.[0] ?? "";
+  const transformParts = [];
+  const style = readRootAttr(root, "style");
+  if (style) {
+    const match = style.match(/(?:^|;)\s*transform\s*:\s*([^;]+)/i);
+    if (match?.[1]) transformParts.push(match[1]);
+  }
+  const transform = readRootAttr(root, "transform");
+  if (transform) transformParts.push(transform);
+  let flipX = false;
+  let flipY = false;
+  for (const part of transformParts) {
+    const flags = detectFlip(part);
+    flipX = flipX !== flags.flipX;
+    flipY = flipY !== flags.flipY;
+  }
+  return { flipX, flipY };
+}
+function applySvgRootTransform(points, transform) {
+  if (!transform.flipX && !transform.flipY) return points;
+  const out = points.map(([x, y]) => [
+    transform.flipX ? 1 - x : x,
+    transform.flipY ? 1 - y : y
+  ]);
+  return transform.flipX !== transform.flipY ? out.reverse() : out;
+}
+function readRootAttr(root, name) {
+  const match = root.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i"));
+  return match ? match[1] ?? match[2] ?? match[3] ?? "" : null;
+}
+function detectFlip(transform) {
+  let flipX = false;
+  let flipY = false;
+  const number = "[-+]?(?:\\d*\\.\\d+|\\d+)(?:e[-+]?\\d+)?";
+  for (const match of transform.matchAll(new RegExp(`scaleX\\(\\s*(${number})\\s*\\)`, "gi"))) {
+    flipX = flipX !== parseFloat(match[1]) < 0;
+  }
+  for (const match of transform.matchAll(new RegExp(`scaleY\\(\\s*(${number})\\s*\\)`, "gi"))) {
+    flipY = flipY !== parseFloat(match[1]) < 0;
+  }
+  for (const match of transform.matchAll(new RegExp(`scale\\(\\s*(${number})(?:[\\s,]+(${number}))?\\s*\\)`, "gi"))) {
+    const sx = parseFloat(match[1]);
+    const sy = match[2] === void 0 ? sx : parseFloat(match[2]);
+    flipX = flipX !== sx < 0;
+    flipY = flipY !== sy < 0;
+  }
+  for (const match of transform.matchAll(new RegExp(`matrix\\(\\s*(${number})[\\s,]+${number}[\\s,]+${number}[\\s,]+(${number})[\\s,]+${number}[\\s,]+${number}\\s*\\)`, "gi"))) {
+    flipX = flipX !== parseFloat(match[1]) < 0;
+    flipY = flipY !== parseFloat(match[2]) < 0;
+  }
+  return { flipX, flipY };
 }
 function alphaFromRGBA(rgba, w, h) {
   const out = new Uint8Array(w * h);
@@ -247,7 +301,7 @@ async function loadImageBrowser(src) {
 }
 async function rasterizeSvg(markup, size, margin) {
   const inner = Math.max(8, size - 2 * margin);
-  const clean = sanitizeSvg(markup);
+  const clean = prepareSvgForRaster(markup);
   const sized = clean.replace(/<svg\b/, `<svg width="${inner}" height="${inner}"`);
   if (isBrowser() || typeof OffscreenCanvas !== "undefined") {
     const { canvas, ctx } = makeCanvas(size, size);
@@ -623,11 +677,16 @@ async function ipolypad(input, options = {}) {
   const format = options.format ?? DEFAULTS.format;
   const resolved = await resolveSource(input);
   let pixels;
+  let svgRootTransform = { flipX: false, flipY: false };
   if (resolved.kind === "svg") {
+    svgRootTransform = detectSvgRootTransform(resolved.markup);
     pixels = await rasterizeSvg(resolved.markup, size, margin);
   } else if (resolved.kind === "image") {
     pixels = await rasterizeImageBytes(resolved.data, size, margin);
   } else if (resolved.kind === "svg-element" || resolved.kind === "img-element") {
+    if (resolved.kind === "svg-element" && typeof XMLSerializer !== "undefined") {
+      svgRootTransform = detectSvgRootTransform(new XMLSerializer().serializeToString(resolved.element));
+    }
     pixels = await rasterizeElement(resolved.element, size, margin);
   } else {
     throw new SourceError("unsupported source kind");
@@ -661,6 +720,7 @@ async function ipolypad(input, options = {}) {
   let pts = hull ? convexHull(best) : best;
   pts = decimate(pts, maxPoints);
   pts = normalize(pts, pixels.width, pixels.height, offset, offset);
+  pts = applySvgRootTransform(pts, svgRootTransform);
   const payload = buildPayload({
     src: resolved.src,
     width: pixels.width,
@@ -688,14 +748,17 @@ export {
   OnlyFrameError,
   SourceError,
   TraceEmptyError,
+  applySvgRootTransform,
   buildPayload,
   convexHull,
   decimate,
+  detectSvgRootTransform,
   ipolypad,
   ipolypadJsonString,
   normalize,
   pickOuterShell,
   polygonArea,
+  prepareSvgForRaster,
   rdp,
   sanitizeSvg,
   setNodeCanvasFactory,

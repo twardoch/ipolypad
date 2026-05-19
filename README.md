@@ -112,8 +112,9 @@ Eight stages. Both implementations agree on every numeric:
 
 1. **Fetch** — local path / `http(s)://` / `data:` URL / in-memory bytes.
 2. **Rasterize** — render SVG to `size×size` RGBA with a transparent
-   `margin`-px gutter; strip root `width`/`height`/`style` from SVG (Qt
-   exports embed inverting CSS transforms).
+   `margin`-px gutter; neutralize root sizing/transform attributes for the
+   internal render box, then reapply detected root mirror transforms to the
+   output hull (Qt exports can embed `transform: scale(-1,1)`).
 3. **Mask** — JS: fixed `alpha > 24`. Python: Otsu on alpha, with
    Lab-ΔE-from-background fallback for opaque inputs and Sauvola escalation
    for pathological cases.

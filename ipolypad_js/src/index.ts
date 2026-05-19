@@ -7,7 +7,17 @@ import {
   rasterizeImageBytes,
   rasterizeSvg,
 } from './canvas.js';
-import { alphaFromRGBA, dilateCircular, erodeCircular, maskFixed, padMask, resolveSource } from './rasterize.js';
+import {
+  alphaFromRGBA,
+  applySvgRootTransform,
+  detectSvgRootTransform,
+  dilateCircular,
+  erodeCircular,
+  maskFixed,
+  padMask,
+  resolveSource,
+  type SvgRootTransform,
+} from './rasterize.js';
 import {
   convexHull,
   decimate,
@@ -46,7 +56,13 @@ export {
   polygonArea,
   rdp,
 } from './simplify.js';
-export { sanitizeSvg } from './rasterize.js';
+export {
+  applySvgRootTransform,
+  detectSvgRootTransform,
+  prepareSvgForRaster,
+  sanitizeSvg,
+  type SvgRootTransform,
+} from './rasterize.js';
 
 const DEFAULTS = {
   size: 200,
@@ -71,11 +87,16 @@ export async function ipolypad(input: Source, options: Options = {}): Promise<Js
   const resolved = await resolveSource(input);
 
   let pixels;
+  let svgRootTransform: SvgRootTransform = { flipX: false, flipY: false };
   if (resolved.kind === 'svg') {
+    svgRootTransform = detectSvgRootTransform(resolved.markup);
     pixels = await rasterizeSvg(resolved.markup, size, margin);
   } else if (resolved.kind === 'image') {
     pixels = await rasterizeImageBytes(resolved.data, size, margin);
   } else if (resolved.kind === 'svg-element' || resolved.kind === 'img-element') {
+    if (resolved.kind === 'svg-element' && typeof XMLSerializer !== 'undefined') {
+      svgRootTransform = detectSvgRootTransform(new XMLSerializer().serializeToString(resolved.element));
+    }
     pixels = await rasterizeElement(resolved.element, size, margin);
   } else {
     throw new SourceError('unsupported source kind');
@@ -110,6 +131,7 @@ export async function ipolypad(input: Source, options: Options = {}): Promise<Js
   let pts = hull ? convexHull(best) : best;
   pts = decimate(pts, maxPoints);
   pts = normalize(pts, pixels.width, pixels.height, offset, offset);
+  pts = applySvgRootTransform(pts, svgRootTransform);
 
   const payload = buildPayload({
     src: resolved.src,
