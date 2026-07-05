@@ -7,6 +7,7 @@ baseurl: /ipolypad
 remote_theme: just-the-docs/just-the-docs@v0.12.0
 repository: twardoch/ipolypad
 
+logo: /assets/icon.png
 color_scheme: light
 search_enabled: true
 heading_anchors: true

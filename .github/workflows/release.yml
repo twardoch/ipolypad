@@ -1,0 +1,63 @@
+# Release both packages from a single `v*` tag: build sdist/wheel for PyPI and
+# the ESM bundle for npm, then publish each. A single git tag is the source of
+# truth for both versions (hatch-vcs derives the Python version from it).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    name: Publish ipolypad to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # PyPI trusted publishing (OIDC), no API token needed
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist + wheel
+        working-directory: ipolypad_py
+        run: uv build --out-dir dist
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ipolypad_py/dist
+
+  npm:
+    name: Publish ipolypad-js to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: ipolypad_js/package-lock.json
+
+      - name: Install + build
+        working-directory: ipolypad_js
+        run: |
+          npm ci
+          npm run build
+
+      - name: Publish
+        working-directory: ipolypad_js
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

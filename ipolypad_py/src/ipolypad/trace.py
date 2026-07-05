@@ -68,6 +68,19 @@ def trace_mask(
     """Run potrace and flatten each curve to a polyline.
 
     Required potrace parameters (SPEC §2.5): turdsize=2, turnpolicy=0, alphamax=1.0.
+
+    Why these fixed values (they are the cross-language parity contract, so both
+    ipolypad_py and ipolypad_js MUST pass the same three):
+
+    - ``turdsize=2`` drops speckle curves of area <= 2px. Anti-aliased mask edges
+      leave 1-2px islands that would otherwise become spurious extra shells and
+      confuse the outer-shell pick (SPEC §2.6).
+    - ``turnpolicy=0`` fixes how potrace resolves ambiguous pixel junctions to a
+      single deterministic rule. Any other policy can flip a junction one way in
+      Python and the other in JS, breaking byte-identical parity.
+    - ``alphamax=1.0`` is potrace's default corner-detection threshold; the whole
+      pipeline is tuned around this smoothing level and it is later re-simplified
+      by RDP anyway, so there is no reason to deviate.
     """
     bm = Bitmap(mask)
     plist = bm.trace(turdsize=2, turnpolicy=0, alphamax=1.0)

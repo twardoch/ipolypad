@@ -1,0 +1,74 @@
+# Build and test both implementations plus the cross-language parity suite in a
+# single job, so Python, JavaScript, and their byte-parity contract are always
+# verified against the same commit.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py+js+parity
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # hatch-vcs needs tags/history to derive the version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ipolypad_js/package-lock.json
+
+      - name: Install JS package
+        working-directory: ipolypad_js
+        run: npm ci
+
+      - name: Typecheck + build JS
+        working-directory: ipolypad_js
+        run: |
+          npx tsc --noEmit
+          npx tsup
+
+      - name: JS tests
+        working-directory: ipolypad_js
+        run: npx vitest run --reporter=dot
+
+      - name: Install Python package
+        working-directory: ipolypad_py
+        run: uv pip install --system -e ".[test]"
+
+      - name: Lint (ruff)
+        working-directory: ipolypad_py
+        run: uvx ruff check src
+
+      - name: Python tests
+        working-directory: ipolypad_py
+        run: pytest -q
+
+      # Runs from repo root: the parity suite shells out to node against the JS
+      # package installed above, so both toolchains must already be present.
+      - name: Parity tests (formatter + best-effort e2e)
+        env:
+          RUN_E2E: "1"
+        run: pytest tests/parity -q

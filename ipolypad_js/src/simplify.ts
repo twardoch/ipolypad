@@ -95,9 +95,20 @@ export function rdp(pts: Point[], eps: number): Point[] {
   return pts.filter((_, i) => keep[i]);
 }
 
-/** Vertex-count-targeted decimation. SPEC §2.8. */
+/**
+ * Vertex-count-targeted decimation. SPEC §2.8.
+ *
+ * RDP takes a distance tolerance `eps`, not a point count, and larger `eps`
+ * removes more vertices. That `eps` -> point-count mapping is monotonic, so we
+ * bisect `eps` over `[0, 0.25 * bbox_diag]` (24 halvings) to find the smallest
+ * tolerance whose output fits `maxPoints`, then emit `rdp(work, hi)` -- the
+ * ceiling always satisfies the target. Mirrors ipolypad_py `decimate` exactly;
+ * both are on the parity surface and must agree byte-for-byte.
+ */
 export function decimate(pts: Point[], maxPoints: number): Point[] {
   let work = pts;
+  // A closing duplicate makes the chord start == end degenerate, collapsing
+  // every RDP distance to zero and dropping the whole shape. Strip it first.
   if (work.length >= 2) {
     const first = work[0]!;
     const last = work[work.length - 1]!;

@@ -18,9 +18,25 @@ fix in `_decimate`.
 
 ## Repository status
 
-Greenfield. Only `README.md`, `LICENSE`, `SPEC.md`, this file, and the prototype
-exist. Packages `ipolypad_py/` and `ipolypad_js/` are not yet scaffolded — see
-SPEC §12 for the target layout.
+Both packages are scaffolded and released (PyPI `ipolypad`, npm `ipolypad-js`).
+Layout: `ipolypad_py/` (hatch + hatch-vcs, `src/ipolypad/`) and `ipolypad_js/`
+(TypeScript ESM, `src/`), with shared `tests/parity/` fixtures. `private/` holds
+the original prototype and is gitignored.
+
+Build and test both languages together:
+
+```bash
+./build.sh            # build + test py, js, and parity (refuses a dirty tree)
+
+# Python only
+cd ipolypad_py && uv run --extra test pytest -q ../tests/parity tests
+# JavaScript only
+cd ipolypad_js && npm install && npx vitest run
+```
+
+CI (`.github/workflows/ci.yml`) runs the Python, JS, and parity suites in one
+job on every push/PR. `.github/workflows/release.yml` publishes both packages
+to PyPI and npm when a `v*` tag is pushed.
 
 ## Asymmetric design
 

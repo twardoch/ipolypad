@@ -80,7 +80,24 @@ def rdp(pts: list[Point], eps: float) -> list[Point]:
 
 
 def decimate(pts: list[Point], max_points: int) -> list[Point]:
-    """Hit a target vertex count by binary-searching RDP epsilon. SPEC §2.8."""
+    """Hit a target vertex count by binary-searching RDP epsilon. SPEC §2.8.
+
+    RDP takes a distance tolerance ``eps``, not a point count: larger ``eps``
+    removes more vertices. That mapping (``eps`` -> resulting point count) is
+    monotonic non-increasing, so a bisection on ``eps`` converges on the
+    smallest tolerance whose output fits within ``max_points``. We search the
+    range ``[0, 0.25 * bbox_diag]`` -- 0 keeps every vertex, a quarter of the
+    diagonal is empirically past the point where any real shape survives -- and
+    24 halvings narrow it to well below sub-pixel precision on normalized input.
+
+    The invariant is ``len(rdp(pts, lo)) > max_points >= len(rdp(pts, hi))``:
+    when a midpoint yields too many points we raise the floor, otherwise we
+    lower the ceiling, then emit ``rdp(pts, hi)`` -- the ceiling always satisfies
+    the target.
+    """
+    # RDP measures each vertex's distance to the chord between its neighbours; a
+    # closing duplicate makes that chord degenerate (start == end), collapsing
+    # every distance to zero and dropping the whole shape. Strip it first.
     if len(pts) >= 2 and pts[0] == pts[-1]:
         pts = pts[:-1]
     if len(pts) <= max_points:
@@ -93,9 +110,9 @@ def decimate(pts: list[Point], max_points: int) -> list[Point]:
         mid = (lo + hi) / 2
         out = rdp(pts, mid)
         if len(out) > max_points:
-            lo = mid
+            lo = mid  # still too detailed -> need a coarser tolerance
         else:
-            hi = mid
+            hi = mid  # fits -> try to keep more detail with a finer tolerance
     return rdp(pts, hi)
 
 
