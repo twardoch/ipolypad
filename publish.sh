@@ -5,7 +5,7 @@
 # Pre-requisites:
 #   - clean working tree
 #   - git tag at HEAD (created by `uvx gitnextver`)
-#   - PyPI token in ~/.pypirc or UV_PUBLISH_TOKEN env var
+#   - gh logged in (PyPI upload via scripts/pypi-upload.sh, Trusted Publishing)
 #   - npm login already done (`npm whoami` works)
 #
 # Run from repo root. Refuses without an exact tag at HEAD.
@@ -53,9 +53,8 @@ require_clean_tree
 # ── Python ────────────────────────────────────────────────────────────────
 log "publish python (PyPI)"
 cd "$ROOT/ipolypad_py"
-# `uv publish` reads UV_PUBLISH_TOKEN or PyPI creds in ~/.pypirc
-uv publish \
-  --check-url "https://pypi.org/simple/ipolypad/" \
+# Trusted Publishing: staged on a draft release, uploaded by pypi-upload.yml
+"$ROOT/scripts/pypi-upload.sh" \
   "dist/ipolypad-${VERSION}.tar.gz" \
   "dist/ipolypad-${VERSION}-py3-none-any.whl"
 ok "python published"
